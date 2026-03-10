@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Visionary Recruiter – Live Tester v3.0</title>
+    <title>Visionary Recruiter – Live Tester v4.0</title>
     <style>
         * {
             box-sizing: border-box;
@@ -167,12 +167,120 @@
             border-radius: 5px;
             margin-top: 12px;
         }
+
+        /* ── Firestore Panel ── */
+        #firebaseBox input {
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        #firebaseBox .fb-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        #fbStatus {
+            font-size: 12px;
+        }
+
+        #historyPanel {
+            margin-top: 14px;
+        }
+
+        #historyPanel h4 {
+            margin: 0 0 8px;
+            color: #7dd3fc;
+        }
+
+        .session-card {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .session-card:hover {
+            border-color: #38bdf8;
+        }
+
+        .session-card .sc-head {
+            display: flex;
+            justify-content: space-between;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+
+        .session-card .sc-scores {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            color: #7dd3fc;
+        }
+
+        .session-card .sc-feedback {
+            color: #fde047;
+            margin-top: 4px;
+        }
+
+        .session-card .sc-transcript {
+            color: #94a3b8;
+            margin-top: 6px;
+            font-size: 11px;
+            max-height: 60px;
+            overflow: hidden;
+        }
+
+        .session-card.expanded .sc-transcript {
+            max-height: none;
+        }
+
+        #saveIndicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #4ade80;
+            color: #0f172a;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        #saveIndicator.show {
+            opacity: 1;
+        }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>🎙️ Visionary Recruiter – Live Tester v3.0</h1>
+        <h1>🎙️ Visionary Recruiter – Live Tester v4.0</h1>
+
+        <!-- ── Firebase Config ── -->
+        <div class="box" id="firebaseBox">
+            <h3 style="margin:0 0 10px;color:#7dd3fc;">🔥 Firestore (Optional)</h3>
+            <input type="text" id="fbApiKey" placeholder="Firebase apiKey" style="width:100%;margin-bottom:6px;">
+            <input type="text" id="fbProjectId" placeholder="Firebase projectId" style="width:100%;margin-bottom:6px;">
+            <input type="text" id="fbAppId" placeholder="Firebase appId" style="width:100%;margin-bottom:8px;">
+            <div class="fb-row">
+                <button id="fbConnectBtn">Connect Firebase</button>
+                <button id="fbLoadBtn" disabled>Load History</button>
+                <span id="fbStatus" style="color:#64748b;">Not connected</span>
+            </div>
+            <div id="historyPanel" style="display:none;">
+                <h4>📋 Past Sessions</h4>
+                <div id="sessionList"></div>
+            </div>
+        </div>
 
         <div class="box">
             <input type="password" id="apiKey" placeholder="Paste Gemini API Key here" style="width:300px;">
@@ -203,6 +311,168 @@
         </div>
     </div>
 
+    <div id="saveIndicator">✅ Saved to Firestore</div>
+
+    <script type="module">
+        // ── Firebase SDK (loaded dynamically) ──
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+        import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp }
+            from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+        let db = null;
+        let sessionId = null;       // current session doc ID
+        let sessionStartTime = null;
+        let transcriptLog = [];     // [{role, text, ts}]
+        let metricSnapshots = [];   // each tool call result
+        let latestMetrics = null;
+
+        /* ── Firebase Connect ── */
+        document.getElementById('fbConnectBtn').onclick = async () => {
+            const apiKey = document.getElementById('fbApiKey').value.trim();
+            const projectId = document.getElementById('fbProjectId').value.trim();
+            const appId = document.getElementById('fbAppId').value.trim();
+            if (!apiKey || !projectId || !appId) return alert('Fill in all three Firebase fields.');
+
+            try {
+                const app = initializeApp({ apiKey, projectId, appId }, 'recruiter-' + Date.now());
+                db = getFirestore(app);
+                document.getElementById('fbStatus').textContent = '✅ Connected';
+                document.getElementById('fbStatus').style.color = '#4ade80';
+                document.getElementById('fbLoadBtn').disabled = false;
+                fbLog('Firestore connected ✅');
+            } catch (e) {
+                document.getElementById('fbStatus').textContent = '❌ ' + e.message;
+                document.getElementById('fbStatus').style.color = '#f87171';
+            }
+        };
+
+        /* ── Load History ── */
+        document.getElementById('fbLoadBtn').onclick = async () => {
+            if (!db) return;
+            try {
+                const q = query(collection(db, 'sessions'), orderBy('startedAt', 'desc'));
+                const snap = await getDocs(q);
+                const panel = document.getElementById('historyPanel');
+                const list = document.getElementById('sessionList');
+                list.innerHTML = '';
+                if (snap.empty) {
+                    list.innerHTML = '<div style="color:#64748b;font-size:12px;">No sessions yet.</div>';
+                } else {
+                    snap.forEach(doc => renderSessionCard(doc.id, doc.data(), list));
+                }
+                panel.style.display = 'block';
+                fbLog(`Loaded ${snap.size} session(s)`);
+            } catch (e) { fbLog('Load error: ' + e.message, true); }
+        };
+
+        function renderSessionCard(id, d, container) {
+            const card = document.createElement('div');
+            card.className = 'session-card';
+            const date = d.startedAt?.toDate?.()?.toLocaleString() || 'Unknown date';
+            const m = d.finalMetrics || {};
+            const avg = ['confidence', 'star_situation', 'star_task', 'star_action', 'star_result', 'articulation']
+                .map(k => m[k] ?? 0).reduce((a, b) => a + b, 0) / 6;
+            card.innerHTML = `
+    <div class="sc-head"><span>🗓 ${date}</span><span>Avg: <strong>${avg.toFixed(0)}</strong>/100</span></div>
+    <div class="sc-scores">
+      <span>CONF ${m.confidence ?? '--'}</span>
+      <span>S ${m.star_situation ?? '--'}</span>
+      <span>T ${m.star_task ?? '--'}</span>
+      <span>A ${m.star_action ?? '--'}</span>
+      <span>R ${m.star_result ?? '--'}</span>
+      <span>ARTIC ${m.articulation ?? '--'}</span>
+    </div>
+    ${m.feedback ? `<div class="sc-feedback">💬 "${m.feedback}"</div>` : ''}
+    <div class="sc-transcript">${(d.transcript || []).map(t => `<strong>${t.role}:</strong> ${t.text}`).join('<br>')
+                }</div>`;
+            card.onclick = () => card.classList.toggle('expanded');
+            container.appendChild(card);
+        }
+
+        /* ── Session Lifecycle ── */
+        async function startSession() {
+            transcriptLog = []; metricSnapshots = []; latestMetrics = null;
+            sessionStartTime = new Date();
+            sessionId = null;
+            if (!db) return;
+            try {
+                const ref = await addDoc(collection(db, 'sessions'), {
+                    startedAt: serverTimestamp(),
+                    status: 'in_progress',
+                    transcript: [],
+                    metricSnapshots: [],
+                    finalMetrics: null,
+                });
+                sessionId = ref.id;
+                fbLog('Session started: ' + sessionId);
+            } catch (e) { fbLog('startSession error: ' + e.message, true); }
+        }
+
+        async function saveMetricSnapshot(args) {
+            latestMetrics = args;
+            metricSnapshots.push({ ...args, ts: new Date().toISOString() });
+            if (!db || !sessionId) return;
+            try {
+                const { doc, updateDoc, arrayUnion } =
+                    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+                await updateDoc(doc(db, 'sessions', sessionId), {
+                    metricSnapshots: arrayUnion({ ...args, ts: new Date().toISOString() }),
+                    finalMetrics: args,
+                });
+                showSaveToast();
+                fbLog(`Metrics saved → conf=${args.confidence} S=${args.star_situation}`);
+            } catch (e) { fbLog('saveMetric error: ' + e.message, true); }
+        }
+
+        async function addTranscriptLine(role, text) {
+            if (!text?.trim()) return;
+            transcriptLog.push({ role, text: text.trim() });
+            if (!db || !sessionId) return;
+            try {
+                const { doc, updateDoc, arrayUnion } =
+                    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+                await updateDoc(doc(db, 'sessions', sessionId), {
+                    transcript: arrayUnion({ role, text: text.trim(), ts: new Date().toISOString() })
+                });
+            } catch (e) { /* silent — transcript is best-effort */ }
+        }
+
+        async function endSession() {
+            if (!db || !sessionId) return;
+            try {
+                const { doc, updateDoc } =
+                    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+                await updateDoc(doc(db, 'sessions', sessionId), {
+                    status: 'completed',
+                    endedAt: serverTimestamp(),
+                    finalMetrics: latestMetrics,
+                });
+                showSaveToast('Session saved ✅');
+                fbLog('Session ended and saved: ' + sessionId);
+            } catch (e) { fbLog('endSession error: ' + e.message, true); }
+            sessionId = null;
+        }
+
+        function showSaveToast(msg = '✅ Saved to Firestore') {
+            const el = document.getElementById('saveIndicator');
+            el.textContent = msg;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 2000);
+        }
+
+        function fbLog(msg, isErr = false) {
+            // pipe into main log
+            if (typeof window._appLog === 'function') window._appLog(msg, isErr ? 'error' : 'db');
+        }
+
+        // Expose to main (non-module) script via window
+        window.fbStartSession = startSession;
+        window.fbSaveMetric = saveMetricSnapshot;
+        window.fbAddTranscript = addTranscriptLine;
+        window.fbEndSession = endSession;
+
+    </script>
+
     <script>
         let ws = null, inputCtx = null, outputCtx = null, mediaStream = null;
         let isStreaming = false, isMicHeld = false, youBuffer = '', sarahBuffer = '', nextPlayTime = 0;
@@ -219,6 +489,8 @@
             const t = new Date().toLocaleTimeString([], { hour12: false });
             els.log.textContent = `[${t}][${type.toUpperCase().padEnd(5)}] ${msg}\n` + els.log.textContent;
         }
+        // Let the Firebase module pipe into this log
+        window._appLog = log;
 
         /* ── 1. CONNECT ── */
         els.connectBtn.onclick = () => {
@@ -279,6 +551,7 @@
                 els.status.textContent = `CLOSED (${ev.code})`; els.status.style.color = '#f87171';
                 log(`WS closed code=${ev.code} reason="${ev.reason}"`, 'warn');
                 isStreaming = false; els.streamBtn.disabled = false;
+                window.fbEndSession?.();
             };
             ws.onerror = () => log('WebSocket error', 'error');
         };
@@ -305,6 +578,7 @@
                     const a = call.args || {};
                     log(`✅ Tool call received: ${call.name} → conf=${a.confidence} S=${a.star_situation} T=${a.star_task} A=${a.star_action} R=${a.star_result}`, 'tool');
                     renderMetrics(a);
+                    window.fbSaveMetric?.(a);
                     ws.send(JSON.stringify({
                         toolResponse: { functionResponses: [{ id: call.id, name: call.name, response: { result: 'ok' } }] }
                     }));
@@ -354,6 +628,7 @@
                     const a = part.functionCall.args || {};
                     log(`Tool call (in parts): ${part.functionCall.name}`, 'tool');
                     renderMetrics(a);
+                    window.fbSaveMetric?.(a);
                     ws.send(JSON.stringify({
                         toolResponse: { functionResponses: [{ id: part.functionCall.id, name: part.functionCall.name, response: { result: 'ok' } }] }
                     }));
@@ -362,6 +637,9 @@
 
             if (sc.turnComplete) {
                 log('Turn complete', 'ok');
+                // Flush full turn transcripts to Firestore
+                if (youBuffer.trim()) window.fbAddTranscript?.('YOU', youBuffer.trim());
+                if (sarahBuffer.trim()) window.fbAddTranscript?.('SARAH', sarahBuffer.trim());
                 youBuffer = ''; sarahBuffer = '';
                 nextPlayTime = 0;
                 pendingAudioChunks = [];
@@ -423,6 +701,7 @@
             if (isStreaming || !ws || ws.readyState !== WebSocket.OPEN) return;
             try {
                 log('Requesting camera + microphone…');
+                window.fbStartSession?.();  // 🔥 Begin Firestore session
                 mediaStream = await navigator.mediaDevices.getUserMedia({
                     audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
                     video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 10 } },
