@@ -205,7 +205,7 @@
 
     <script>
         let ws = null, inputCtx = null, outputCtx = null, mediaStream = null;
-        let isStreaming = false, isMicHeld = false, youBuffer = '', nextPlayTime = 0;
+        let isStreaming = false, isMicHeld = false, youBuffer = '', sarahBuffer = '', nextPlayTime = 0;
 
         const els = {
             apiKey: document.getElementById('apiKey'), connectBtn: document.getElementById('connectBtn'),
@@ -249,7 +249,19 @@
                             automatic_activity_detection: { disabled: true }
                         },
                         system_instruction: {
-                            parts: [{ text: 'You are Sarah, a tough but fair Senior Recruiter. Conduct a mock interview using the STAR method. Start immediately by introducing yourself and asking the first question. Be concise.' }]
+                            parts: [{
+                                text: `You are Sarah, a tough but fair Senior Recruiter conducting a mock interview using the STAR method (Situation, Task, Action, Result).
+
+INTERVIEW RULES:
+1. Start immediately by introducing yourself briefly and asking the first STAR question.
+2. Ask one STAR question at a time. After the candidate answers, probe deeper or move to the next question.
+3. Keep your spoken responses concise (2-4 sentences max).
+
+METRICS RULE (CRITICAL):
+- After EVERY candidate response — even short or incomplete ones — you MUST call update_interview_metrics.
+- Score each STAR dimension 0-100 based on what the candidate has said so far in the entire interview.
+- Scores should increase as the candidate provides more detail. Start low (0-20) and build up.
+- Never skip calling update_interview_metrics after a candidate speaks.` }]
                         },
                         tools: [{
                             function_declarations: [{
@@ -318,7 +330,8 @@
                 log(`INPUT TX: ${data.inputTranscription.text}`, 'stt');
             }
             if (data.outputTranscription?.text) {
-                els.sarahBubble.textContent = 'SARAH: ' + data.outputTranscription.text;
+                sarahBuffer += data.outputTranscription.text;
+                els.sarahBubble.textContent = 'SARAH: ' + sarahBuffer;
                 log(`OUTPUT TX: ${data.outputTranscription.text}`, 'tts');
             }
 
@@ -331,7 +344,8 @@
                 els.youBubble.textContent = 'YOU: ' + youBuffer.trim();
             }
             if (!data.outputTranscription && sc.outputTranscription?.text) {
-                els.sarahBubble.textContent = 'SARAH: ' + sc.outputTranscription.text;
+                sarahBuffer += sc.outputTranscription.text;
+                els.sarahBubble.textContent = 'SARAH: ' + sarahBuffer;
             }
 
             const parts = sc.modelTurn?.parts || [];
@@ -357,22 +371,34 @@
 
             if (sc.turnComplete) {
                 log('Turn complete', 'ok');
-                youBuffer = '';
-                nextPlayTime = 0; // reset playhead for next turn
+                youBuffer = ''; sarahBuffer = '';
+                nextPlayTime = 0;
                 pendingAudioChunks = [];
             }
         }
 
         function renderMetrics(a) {
-            els.metrics.innerHTML = `
-    <div class="metric-item">CONF: ${a.confidence ?? '--'}</div>
-    <div class="metric-item">S (Situation): ${a.star_situation ?? 0}</div>
-    <div class="metric-item">T (Task): ${a.star_task ?? 0}</div>
-    <div class="metric-item">A (Action): ${a.star_action ?? 0}</div>
-    <div class="metric-item">R (Result): ${a.star_result ?? 0}</div>
-    <div class="metric-item">ARTIC: ${a.articulation ?? '--'}</div>
-    ${a.feedback ? `<div class="metric-item" style="color:#fde047;flex-basis:100%;">💬 ${a.feedback}</div>` : ''}
-  `;
+            const bar = (val) => {
+                const pct = Math.min(100, Math.max(0, val ?? 0));
+                const color = pct >= 70 ? '#4ade80' : pct >= 40 ? '#facc15' : '#f87171';
+                return `<div style="background:#1e293b;border-radius:3px;height:6px;margin-top:3px;">
+      <div style="width:${pct}%;height:100%;background:${color};border-radius:3px;transition:width 0.4s;"></div>
+    </div>`;
+            };
+            const metric = (label, val) => `
+    <div class="metric-item" style="min-width:100px;">
+      <div>${label}: <strong>${val ?? '--'}</strong></div>
+      ${bar(val)}
+    </div>`;
+
+            els.metrics.innerHTML =
+                metric('CONF', a.confidence) +
+                metric('S', a.star_situation) +
+                metric('T', a.star_task) +
+                metric('A', a.star_action) +
+                metric('R', a.star_result) +
+                metric('ARTIC', a.articulation) +
+                (a.feedback ? `<div class="metric-item" style="color:#fde047;flex-basis:100%;">💬 ${a.feedback}</div>` : '');
         }
 
         /* ── 3. PUSH-TO-TALK ── */
