@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visionary Recruiter – Live Tester v3.0</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: monospace;
+            background: #0f172a;
+            color: #38bdf8;
+            padding: 20px;
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        h1 {
+            color: #7dd3fc;
+            margin: 0 0 20px;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        .box {
+            background: #1e293b;
+            border: 1px solid #334155;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            position: relative;
+        }
+
+        input,
+        button {
+            background: #0f172a;
+            border: 1px solid #38bdf8;
+            color: #38bdf8;
+            padding: 9px 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #38bdf8;
+            color: #0f172a;
+        }
+
+        button:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        #micBtn {
+            display: none;
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            border: 5px solid #38bdf8;
+            background: #0f172a;
+            color: #38bdf8;
+            font-size: 13px;
+            font-weight: bold;
+            line-height: 1.3;
+            position: absolute;
+            right: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        #micBtn.active {
+            background: #22c55e;
+            color: white;
+            border-color: #22c55e;
+            animation: ping 1.2s ease-out infinite, glow 1.2s ease-in-out infinite alternate;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        @keyframes ping {
+            0% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, .7)
+            }
+
+            70% {
+                box-shadow: 0 0 0 20px rgba(34, 197, 94, 0)
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0)
+            }
+        }
+
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 8px #22c55e
+            }
+
+            to {
+                box-shadow: 0 0 24px #22c55e
+            }
+        }
+
+        video {
+            width: 240px;
+            border-radius: 6px;
+            background: #000;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        #youBubble {
+            background: #1e3a5f;
+            border-left: 4px solid #38bdf8;
+            color: #bae6fd;
+            padding: 10px 14px;
+            border-radius: 5px;
+            min-height: 36px;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        #sarahBubble {
+            background: #1e293b;
+            border-left: 4px solid #a78bfa;
+            color: #e0f2fe;
+            padding: 10px 14px;
+            border-radius: 5px;
+            min-height: 60px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .metrics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .metric-item {
+            background: #334155;
+            padding: 6px 12px;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+
+        #log {
+            white-space: pre-wrap;
+            max-height: 220px;
+            overflow-y: auto;
+            font-size: 11.5px;
+            color: #64748b;
+            background: #0d1524;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎙️ Visionary Recruiter – Live Tester v3.0</h1>
+
+        <div class="box">
+            <input type="password" id="apiKey" placeholder="Paste Gemini API Key here" style="width:300px;">
+            <button id="connectBtn">1. Connect</button>
+            <button id="streamBtn" disabled>2. Start Camera + Mic</button>
+            <span style="margin-left:16px;">Status: <span id="status"
+                    style="font-weight:bold;">DISCONNECTED</span></span>
+        </div>
+
+        <div class="box">
+            <h3 style="margin-top:0;">Live Interview – Hold Button to Speak</h3>
+            <video id="videoPreview" autoplay playsinline muted></video>
+            <button id="micBtn">HOLD<br>TO<br>SPEAK</button>
+            <div id="youBubble">YOU: (hold mic and speak…)</div>
+            <div class="metrics" id="metricsDisplay">
+                <div class="metric-item">CONF: --</div>
+                <div class="metric-item">S: 0</div>
+                <div class="metric-item">T: 0</div>
+                <div class="metric-item">A: 0</div>
+                <div class="metric-item">R: 0</div>
+                <div class="metric-item">ARTIC: --</div>
+            </div>
+        </div>
+
+        <div class="box">
+            <div id="sarahBubble">SARAH: (waiting for connection…)</div>
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null, inputCtx = null, outputCtx = null, mediaStream = null;
+        let isStreaming = false, isMicHeld = false, youBuffer = '', nextPlayTime = 0;
+
+        const els = {
+            apiKey: document.getElementById('apiKey'), connectBtn: document.getElementById('connectBtn'),
+            streamBtn: document.getElementById('streamBtn'), micBtn: document.getElementById('micBtn'),
+            status: document.getElementById('status'), log: document.getElementById('log'),
+            youBubble: document.getElementById('youBubble'), sarahBubble: document.getElementById('sarahBubble'),
+            video: document.getElementById('videoPreview'), metrics: document.getElementById('metricsDisplay'),
+        };
+
+        function log(msg, type = 'info') {
+            const t = new Date().toLocaleTimeString([], { hour12: false });
+            els.log.textContent = `[${t}][${type.toUpperCase().padEnd(5)}] ${msg}\n` + els.log.textContent;
+        }
+
+        /* ── 1. CONNECT ── */
+        els.connectBtn.onclick = () => {
+            const key = els.apiKey.value.trim();
+            if (!key) return alert('Paste your Gemini API Key first.');
+            if (ws) { ws.close(); ws = null; }
+            log('Connecting to Gemini Live API…');
+
+            const model = 'models/gemini-2.5-flash-native-audio-preview-12-2025';
+            const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${key}`;
+            ws = new WebSocket(url);
+
+            ws.onopen = () => {
+                log('WebSocket OPEN', 'ok');
+                els.status.textContent = 'CONNECTED'; els.status.style.color = '#4ade80';
+                els.streamBtn.disabled = false;
+
+                ws.send(JSON.stringify({
+                    setup: {
+                        model,
+                        generation_config: {
+                            response_modalities: ['AUDIO'],
+                        },
+                        input_audio_transcription: {},
+                        output_audio_transcription: {},
+                        // Disable auto-VAD so WE control when a turn starts/ends via activityStart/activityEnd
+                        realtime_input_config: {
+                            automatic_activity_detection: { disabled: true }
+                        },
+                        system_instruction: {
+                            parts: [{ text: 'You are Sarah, a tough but fair Senior Recruiter. Conduct a mock interview using the STAR method. Start immediately by introducing yourself and asking the first question. Be concise.' }]
+                        },
+                        tools: [{
+                            function_declarations: [{
+                                name: 'update_interview_metrics',
+                                description: 'Update STAR evaluation scores after each answer.',
+                                parameters: {
+                                    type: 'OBJECT',
+                                    properties: {
+                                        confidence: { type: 'NUMBER', description: '0-100' },
+                                        star_situation: { type: 'NUMBER', description: '0-100' },
+                                        star_task: { type: 'NUMBER', description: '0-100' },
+                                        star_action: { type: 'NUMBER', description: '0-100' },
+                                        star_result: { type: 'NUMBER', description: '0-100' },
+                                        articulation: { type: 'NUMBER', description: '0-100' },
+                                        feedback: { type: 'STRING', description: 'Max 10 words of encouragement or correction.' },
+                                    },
+                                    required: ['confidence', 'star_situation', 'star_task', 'star_action', 'star_result', 'articulation', 'feedback'],
+                                }
+                            }]
+                        }]
+                    }
+                }));
+            };
+
+            ws.onmessage = ev => handleMessage(ev);
+            ws.onclose = ev => {
+                els.status.textContent = `CLOSED (${ev.code})`; els.status.style.color = '#f87171';
+                log(`WS closed code=${ev.code} reason="${ev.reason}"`, 'warn');
+                isStreaming = false; els.streamBtn.disabled = false;
+            };
+            ws.onerror = () => log('WebSocket error', 'error');
+        };
+
+        /* ── 2. MESSAGE HANDLER ── */
+        async function handleMessage(ev) {
+            // ✅ Handle both Blob (binary WS frame) and string
+            let text;
+            if (ev.data instanceof Blob) { text = await ev.data.text(); }
+            else { text = ev.data; }
+
+            let data;
+            try { data = JSON.parse(text); }
+            catch (e) { log(`Bad JSON: ${text.substring(0, 120)}`, 'error'); return; }
+
+            const shape = JSON.stringify(data).substring(0, 200);
+            log(`← ${shape}${shape.length >= 200 ? '…' : ''}`, 'debug');
+
+            if (data.setupComplete) { log('Setup ACK — ready!', 'ok'); return; }
+
+            // ✅ Tool calls come as top-level "toolCall" (not inside serverContent)
+            if (data.toolCall) {
+                (data.toolCall.functionCalls || []).forEach(call => {
+                    const a = call.args || {};
+                    log(`Tool call: ${call.name}`, 'tool');
+                    renderMetrics(a);
+                    ws.send(JSON.stringify({
+                        toolResponse: { functionResponses: [{ id: call.id, name: call.name, response: { result: 'ok' } }] }
+                    }));
+                });
+            }
+
+            // ✅ inputTranscription / outputTranscription are TOP-LEVEL fields on server messages
+            if (data.inputTranscription?.text) {
+                youBuffer += ' ' + data.inputTranscription.text;
+                els.youBubble.textContent = 'YOU: ' + youBuffer.trim();
+                log(`INPUT TX: ${data.inputTranscription.text}`, 'stt');
+            }
+            if (data.outputTranscription?.text) {
+                els.sarahBubble.textContent = 'SARAH: ' + data.outputTranscription.text;
+                log(`OUTPUT TX: ${data.outputTranscription.text}`, 'tts');
+            }
+
+            const sc = data.serverContent;
+            if (!sc) return;
+
+            // Fallback: some versions nest transcription inside serverContent
+            if (!data.inputTranscription && sc.inputTranscription?.text) {
+                youBuffer += ' ' + sc.inputTranscription.text;
+                els.youBubble.textContent = 'YOU: ' + youBuffer.trim();
+            }
+            if (!data.outputTranscription && sc.outputTranscription?.text) {
+                els.sarahBubble.textContent = 'SARAH: ' + sc.outputTranscription.text;
+            }
+
+            const parts = sc.modelTurn?.parts || [];
+            parts.forEach(part => {
+                if (part.text) { els.sarahBubble.textContent = 'SARAH: ' + part.text; }
+
+                if (part.inlineData?.data) {
+                    const mime = part.inlineData.mimeType || '';
+                    if (mime.startsWith('audio') || mime === '') {
+                        log(`Audio chunk (${part.inlineData.data.length} chars b64)`, 'audio');
+                        playAudio(part.inlineData.data);
+                    }
+                }
+
+                if (part.functionCall) {
+                    const a = part.functionCall.args || {};
+                    renderMetrics(a);
+                    ws.send(JSON.stringify({
+                        toolResponse: { functionResponses: [{ id: part.functionCall.id, name: part.functionCall.name, response: { result: 'ok' } }] }
+                    }));
+                }
+            });
+
+            if (sc.turnComplete) {
+                log('Turn complete', 'ok');
+                youBuffer = '';
+                nextPlayTime = 0; // reset playhead for next turn
+                pendingAudioChunks = [];
+            }
+        }
+
+        function renderMetrics(a) {
+            els.metrics.innerHTML = `
+    <div class="metric-item">CONF: ${a.confidence ?? '--'}</div>
+    <div class="metric-item">S (Situation): ${a.star_situation ?? 0}</div>
+    <div class="metric-item">T (Task): ${a.star_task ?? 0}</div>
+    <div class="metric-item">A (Action): ${a.star_action ?? 0}</div>
+    <div class="metric-item">R (Result): ${a.star_result ?? 0}</div>
+    <div class="metric-item">ARTIC: ${a.articulation ?? '--'}</div>
+    ${a.feedback ? `<div class="metric-item" style="color:#fde047;flex-basis:100%;">💬 ${a.feedback}</div>` : ''}
+  `;
+        }
+
+        /* ── 3. PUSH-TO-TALK ── */
+        function micDown() {
+            if (!isStreaming) return;
+            isMicHeld = true; youBuffer = '';
+            els.youBubble.textContent = 'YOU: (speaking…)';
+            els.micBtn.classList.add('active');
+            log('Mic OPEN — sending activityStart', 'ptt');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ realtimeInput: { activityStart: {} } }));
+            }
+        }
+        function micUp() {
+            if (!isMicHeld) return;
+            isMicHeld = false;
+            els.micBtn.classList.remove('active');
+            log('Mic CLOSED — sending activityEnd', 'ptt');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ realtimeInput: { activityEnd: {} } }));
+            }
+        }
+        els.micBtn.addEventListener('mousedown', micDown);
+        els.micBtn.addEventListener('mouseup', micUp);
+        els.micBtn.addEventListener('mouseleave', micUp);
+        els.micBtn.addEventListener('touchstart', e => { e.preventDefault(); micDown(); });
+        els.micBtn.addEventListener('touchend', e => { e.preventDefault(); micUp(); });
+
+        /* ── 4. START CAMERA + MIC ── */
+        els.streamBtn.onclick = async () => {
+            if (isStreaming || !ws || ws.readyState !== WebSocket.OPEN) return;
+            try {
+                log('Requesting camera + microphone…');
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
+                    video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 10 } },
+                });
+                els.video.srcObject = mediaStream;
+                isStreaming = true;
+                els.micBtn.style.display = 'block';
+                els.streamBtn.disabled = true;
+                nextPlayTime = 0;
+
+                // ✅ Create output context NOW (inside user gesture) so autoplay policy is satisfied
+                outputCtx = new AudioContext({ sampleRate: 24000 });
+                log('Output AudioContext 24kHz ready', 'ok');
+
+                // ✅ SEPARATE input context — only for mic capture
+                inputCtx = new AudioContext({ sampleRate: 16000 });
+                const source = inputCtx.createMediaStreamSource(mediaStream);
+                const proc = inputCtx.createScriptProcessor(4096, 1, 1);
+                source.connect(proc);
+                proc.connect(inputCtx.destination);
+
+                proc.onaudioprocess = e => {
+                    if (!isMicHeld || !ws || ws.readyState !== WebSocket.OPEN) return;
+                    const float = e.inputBuffer.getChannelData(0);
+                    const pcm16 = new Int16Array(float.length);
+                    for (let i = 0; i < float.length; i++) {
+                        const s = Math.max(-1, Math.min(1, float[i]));
+                        pcm16[i] = s < 0 ? s * 32768 : s * 32767;
+                    }
+                    // ✅ Chunked base64 — avoids crash on large buffers
+                    const bytes = new Uint8Array(pcm16.buffer);
+                    let bin = ''; const C = 0x8000;
+                    for (let i = 0; i < bytes.length; i += C)
+                        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + C));
+                    // ✅ camelCase: realtimeInput / mediaChunks (raw WS protocol is camelCase)
+                    ws.send(JSON.stringify({
+                        realtimeInput: { mediaChunks: [{ mimeType: 'audio/pcm;rate=16000', data: btoa(bin) }] }
+                    }));
+                };
+
+                log('Media ACTIVE — hold mic to speak!', 'ok');
+
+                // Video frames every 2.5s
+                const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 240;
+                const ctx2d = canvas.getContext('2d');
+                const sendFrame = () => {
+                    if (!isStreaming || !ws || ws.readyState !== WebSocket.OPEN) return;
+                    ctx2d.drawImage(els.video, 0, 0, 320, 240);
+                    const jpeg = canvas.toDataURL('image/jpeg', 0.45).split(',')[1];
+                    ws.send(JSON.stringify({ realtimeInput: { mediaChunks: [{ mimeType: 'image/jpeg', data: jpeg }] } }));
+                    setTimeout(sendFrame, 2500);
+                };
+                sendFrame();
+
+            } catch (err) {
+                log(`Media error: ${err.message}`, 'error');
+                alert('Could not access camera/mic:\n' + err.message);
+            }
+        };
+
+        /* ── 5. PLAY SARAH'S AUDIO ── */
+        // Queue chunks that arrive before context is running
+        let pendingAudioChunks = [];
+        let isResuming = false;
+
+        async function ensureOutputCtx() {
+            if (!outputCtx || outputCtx.state === 'closed') {
+                outputCtx = new AudioContext({ sampleRate: 24000 });
+                nextPlayTime = 0;
+                log('Output AudioContext (re)created', 'audio');
+            }
+            if (outputCtx.state === 'suspended') {
+                if (!isResuming) {
+                    isResuming = true;
+                    await outputCtx.resume();
+                    isResuming = false;
+                    log('Output AudioContext resumed', 'audio');
+                    // Flush any chunks that queued up during resume
+                    const queued = pendingAudioChunks.splice(0);
+                    queued.forEach(b64 => scheduleChunk(b64));
+                }
+                return false; // still resuming, chunk will be queued
+            }
+            return true; // running
+        }
+
+        function scheduleChunk(base64) {
+            try {
+                const bin = atob(base64);
+                const u8 = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+                const i16 = new Int16Array(u8.buffer);
+                const f32 = new Float32Array(i16.length);
+                for (let i = 0; i < i16.length; i++) f32[i] = i16[i] / 32768.0;
+
+                const buf = outputCtx.createBuffer(1, f32.length, 24000);
+                buf.copyToChannel(f32, 0);
+                const src = outputCtx.createBufferSource();
+                src.buffer = buf;
+                src.connect(outputCtx.destination);
+
+                const now = outputCtx.currentTime;
+                if (nextPlayTime < now + 0.01) nextPlayTime = now + 0.05;
+                src.start(nextPlayTime);
+                nextPlayTime += buf.duration;
+            } catch (e) { log(`Playback error: ${e.message}`, 'error'); }
+        }
+
+        async function playAudio(base64) {
+            const ready = await ensureOutputCtx();
+            if (!ready) {
+                // Context is resuming — queue this chunk to play once it's ready
+                pendingAudioChunks.push(base64);
+                return;
+            }
+            scheduleChunk(base64);
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+            if (ws) ws.close();
+            if (inputCtx) inputCtx.close();
+            if (outputCtx) outputCtx.close();
+        });
+    </script>
+</body>
+
+</html>
