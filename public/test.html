@@ -249,19 +249,7 @@
                             automatic_activity_detection: { disabled: true }
                         },
                         system_instruction: {
-                            parts: [{
-                                text: `You are Sarah, a tough but fair Senior Recruiter conducting a mock interview using the STAR method (Situation, Task, Action, Result).
-
-INTERVIEW RULES:
-1. Start immediately by introducing yourself briefly and asking the first STAR question.
-2. Ask one STAR question at a time. After the candidate answers, probe deeper or move to the next question.
-3. Keep your spoken responses concise (2-4 sentences max).
-
-METRICS RULE (CRITICAL):
-- After EVERY candidate response — even short or incomplete ones — you MUST call update_interview_metrics.
-- Score each STAR dimension 0-100 based on what the candidate has said so far in the entire interview.
-- Scores should increase as the candidate provides more detail. Start low (0-20) and build up.
-- Never skip calling update_interview_metrics after a candidate speaks.` }]
+                            parts: [{ text: `You are Sarah, a Senior Recruiter doing a mock interview using the STAR method. Introduce yourself briefly, then ask one STAR question at a time. Keep responses to 2-3 sentences. CRITICAL: After every candidate response, always call update_interview_metrics with scores 0-100 for each dimension. Never skip this call.` }]
                         },
                         tools: [{
                             function_declarations: [{
@@ -315,7 +303,7 @@ METRICS RULE (CRITICAL):
             if (data.toolCall) {
                 (data.toolCall.functionCalls || []).forEach(call => {
                     const a = call.args || {};
-                    log(`Tool call: ${call.name}`, 'tool');
+                    log(`✅ Tool call received: ${call.name} → conf=${a.confidence} S=${a.star_situation} T=${a.star_task} A=${a.star_action} R=${a.star_result}`, 'tool');
                     renderMetrics(a);
                     ws.send(JSON.stringify({
                         toolResponse: { functionResponses: [{ id: call.id, name: call.name, response: { result: 'ok' } }] }
@@ -350,7 +338,8 @@ METRICS RULE (CRITICAL):
 
             const parts = sc.modelTurn?.parts || [];
             parts.forEach(part => {
-                if (part.text) { els.sarahBubble.textContent = 'SARAH: ' + part.text; }
+                // NOTE: do NOT render part.text — that's internal reasoning, not spoken output
+                // Spoken output comes via outputTranscription chunks above
 
                 if (part.inlineData?.data) {
                     const mime = part.inlineData.mimeType || '';
@@ -360,8 +349,10 @@ METRICS RULE (CRITICAL):
                     }
                 }
 
+                // Gemini Live sends tool calls as top-level toolCall, not here — but handle both
                 if (part.functionCall) {
                     const a = part.functionCall.args || {};
+                    log(`Tool call (in parts): ${part.functionCall.name}`, 'tool');
                     renderMetrics(a);
                     ws.send(JSON.stringify({
                         toolResponse: { functionResponses: [{ id: part.functionCall.id, name: part.functionCall.name, response: { result: 'ok' } }] }
