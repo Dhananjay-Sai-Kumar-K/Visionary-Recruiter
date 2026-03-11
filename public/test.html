@@ -2,2152 +2,1915 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Visionary Recruiter v6.0 — MediaPipe Edition</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AudioLens — Precision Transcription</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap');
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #111118;
+            --surface2: #1a1a24;
+            --border: #2a2a3a;
+            --accent: #00ff9d;
+            --accent2: #7b61ff;
+            --warn: #ff6b35;
+            --text: #e8e8f0;
+            --muted: #6b6b8a;
+            --red: #ff4466;
+        }
 
         * {
             box-sizing: border-box;
             margin: 0;
-            padding: 0
-        }
-
-        :root {
-            --bg: #070b10;
-            --surface: #0c1520;
-            --surface2: #111d2a;
-            --border: #1a2a3a;
-            --accent: #00d4ff;
-            --accent2: #a855f7;
-            --ok: #22c55e;
-            --warn: #f59e0b;
-            --danger: #ef4444;
-            --text: #c9d8e8;
-            --muted: #3d5570;
-            --muted2: #5a7a9a;
+            padding: 0;
         }
 
         body {
-            font-family: 'DM Sans', sans-serif;
             background: var(--bg);
             color: var(--text);
-            padding: 16px;
+            font-family: 'Syne', sans-serif;
             min-height: 100vh;
-            overflow-x: hidden
+            overflow-x: hidden;
         }
 
-        /* Scanline overlay */
+        /* Animated grid background */
         body::before {
             content: '';
             position: fixed;
             inset: 0;
-            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 212, 255, 0.012) 2px, rgba(0, 212, 255, 0.012) 4px);
+            background-image:
+                linear-gradient(rgba(0, 255, 157, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 157, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
             pointer-events: none;
-            z-index: 9999
-        }
-
-        h1 {
-            font-family: 'Space Mono', monospace;
-            color: var(--accent);
-            font-size: 15px;
-            letter-spacing: 3px;
-            text-transform: uppercase
-        }
-
-        .subtitle {
-            font-family: 'Space Mono', monospace;
-            font-size: 9px;
-            color: var(--muted);
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            margin-top: 3px;
-            margin-bottom: 18px
+            z-index: 0;
         }
 
         .container {
-            max-width: 1140px;
-            margin: 0 auto
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 24px 80px;
         }
 
-        /* Header bar */
-        .header {
+        /* Header */
+        header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 48px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 24px;
+        }
+
+        .logo {
             display: flex;
             align-items: center;
             gap: 12px;
-            margin-bottom: 18px
         }
 
-        .header-badge {
-            background: linear-gradient(135deg, #00d4ff22, #a855f722);
-            border: 1px solid var(--accent);
-            border-radius: 6px;
-            padding: 4px 12px;
-            font-family: 'Space Mono', monospace;
-            font-size: 9px;
-            color: var(--accent);
-            letter-spacing: 1px
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: 340px 1fr;
-            gap: 14px
-        }
-
-        @media(max-width:800px) {
-            .grid {
-                grid-template-columns: 1fr
-            }
-        }
-
-        .box {
-            background: var(--surface);
-            border: 1px solid var(--border);
+        .logo-icon {
+            width: 42px;
+            height: 42px;
+            background: var(--accent);
             border-radius: 10px;
-            padding: 14px;
-            margin-bottom: 14px;
-            position: relative;
-            overflow: hidden
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
         }
 
-        .box::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--accent)40%, transparent);
-            opacity: .25
+        .logo-text h1 {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--text);
         }
 
-        .box-title {
+        .logo-text span {
+            font-size: 11px;
+            color: var(--muted);
             font-family: 'Space Mono', monospace;
-            font-size: 9px;
             letter-spacing: 2px;
             text-transform: uppercase;
-            color: var(--muted2);
-            margin-bottom: 10px;
+        }
+
+        .api-key-section {
             display: flex;
+            gap: 10px;
             align-items: center;
-            gap: 6px
         }
 
-        .box-title .dot {
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-            background: var(--accent)
-        }
-
-        /* Connect row */
-        .connect-row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            flex-wrap: wrap
-        }
-
-        input,
-        button {
-            background: var(--bg);
+        .api-input {
+            background: var(--surface2);
             border: 1px solid var(--border);
+            border-radius: 8px;
             color: var(--text);
-            padding: 7px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Space Mono', monospace;
             font-size: 12px;
-            transition: all .2s
-        }
-
-        input:focus {
+            padding: 10px 14px;
+            width: 260px;
             outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .api-input:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 2px rgba(0, 212, 255, .1)
         }
 
-        button:hover:not(:disabled) {
-            border-color: var(--accent);
-            color: var(--accent);
-            box-shadow: 0 0 14px rgba(0, 212, 255, .15)
+        .api-input::placeholder {
+            color: var(--muted);
         }
 
-        button:disabled {
-            opacity: .25;
-            cursor: not-allowed
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #00d4ff, #0099bb);
-            color: #000;
-            border-color: var(--accent);
-            font-weight: 600;
-            letter-spacing: .5px
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            background: linear-gradient(135deg, #00eeff, #00b8d9);
-            color: #000;
-            box-shadow: 0 0 22px rgba(0, 212, 255, .45)
-        }
-
-        /* Status */
-        .status-dot {
-            display: inline-block;
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: var(--danger);
-            vertical-align: middle;
-            margin-right: 5px;
-            flex-shrink: 0
-        }
-
-        .status-dot.connected {
-            background: var(--ok);
-            box-shadow: 0 0 8px var(--ok)
-        }
-
-        .status-dot.streaming {
-            background: var(--warn);
-            box-shadow: 0 0 8px var(--warn);
-            animation: blink 1s infinite
-        }
-
-        @keyframes blink {
-            50% {
-                opacity: .25
-            }
-        }
-
-        /* ── VIDEO PANEL ── */
-        .video-container {
-            position: relative;
-            display: inline-block;
-            border-radius: 8px;
-            overflow: hidden;
-            width: 100%
-        }
-
-        video {
-            width: 100%;
-            display: block;
-            background: #000;
-            border-radius: 8px;
-            aspect-ratio: 4/3;
-            object-fit: cover
-        }
-
-        /* Canvas overlay for landmarks */
-        #landmarkCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border-radius: 8px;
-            pointer-events: none
-        }
-
-        /* Gaze reticle */
-        #gazeReticle {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            border: 2px solid var(--accent);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            transition: left .12s, top .12s;
-            display: none;
-            box-shadow: 0 0 10px var(--accent)
-        }
-
-        #gazeReticle::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 4px;
-            height: 4px;
-            border-radius: 50%;
-            background: var(--accent)
-        }
-
-        /* Warning flash */
-        .video-container.warn-flash::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 8px;
-            border: 3px solid var(--danger);
-            z-index: 10;
-            animation: flashOut .6s forwards
-        }
-
-        @keyframes flashOut {
-            0% {
-                opacity: 1
-            }
-
-            100% {
-                opacity: 0
-            }
-        }
-
-        #analysisBadge {
-            position: absolute;
-            bottom: 8px;
-            left: 8px;
-            right: 8px;
-            background: rgba(7, 11, 16, .9);
-            border: 1px solid var(--danger);
-            border-radius: 5px;
-            padding: 5px 9px;
-            font-size: 10px;
-            color: #fca5a5;
-            font-family: 'Space Mono', monospace;
-            display: none;
-            backdrop-filter: blur(6px);
-            z-index: 11
-        }
-
-        #analysisBadge.ok {
-            border-color: var(--ok);
-            color: #86efac
-        }
-
-        /* MediaPipe status chip */
-        #mpStatus {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            font-family: 'Space Mono', monospace;
-            font-size: 9px;
-            padding: 3px 8px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            color: var(--muted2)
-        }
-
-        #mpStatus.active {
-            border-color: var(--ok);
-            color: var(--ok)
-        }
-
-        #mpStatus.loading {
-            border-color: var(--warn);
-            color: var(--warn)
-        }
-
-        /* ── MIC BUTTON ── */
-        #micBtn {
-            display: none;
-            width: 90px;
-            height: 90px;
-            border-radius: 50%;
-            border: 2px solid var(--accent);
-            background: var(--bg);
-            color: var(--accent);
-            font-family: 'Space Mono', monospace;
-            font-size: 10px;
+        .btn {
+            font-family: 'Syne', sans-serif;
             font-weight: 700;
-            line-height: 1.3;
-            margin-top: 10px;
-            cursor: pointer;
-            transition: all .2s;
-            user-select: none;
-            touch-action: manipulation
-        }
-
-        #micBtn.active {
-            background: var(--ok);
-            color: #000;
-            border-color: var(--ok);
-            transform: scale(1.1);
-            animation: pulse 1.2s ease-out infinite
-        }
-
-        @keyframes pulse {
-            0% {
-                box-shadow: 0 0 0 0 rgba(34, 197, 94, .7)
-            }
-
-            70% {
-                box-shadow: 0 0 0 16px rgba(34, 197, 94, 0)
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0)
-            }
-        }
-
-        /* Analysis interval */
-        .interval-ctrl {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 10px;
-            font-size: 11px;
-            color: var(--muted2)
-        }
-
-        input[type=range] {
-            -webkit-appearance: none;
-            height: 3px;
-            background: var(--border);
-            border-radius: 2px;
-            padding: 0;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            padding: 10px 18px;
+            border-radius: 8px;
             border: none;
-            width: 100px
-        }
-
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--accent);
-            cursor: pointer
-        }
-
-        /* ── MEDIAPIPE METRICS PANEL ── */
-        .mp-metrics {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-top: 2px
-        }
-
-        .mp-card {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px 12px;
-            position: relative;
-            overflow: hidden
-        }
-
-        .mp-card::before {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            border-radius: 0 0 8px 8px;
-            transition: width .5s ease, background .5s
-        }
-
-        .mp-label {
-            font-family: 'Space Mono', monospace;
-            font-size: 8px;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            color: var(--muted2);
-            margin-bottom: 2px
-        }
-
-        .mp-val {
-            font-family: 'Space Mono', monospace;
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--accent);
-            line-height: 1
-        }
-
-        .mp-sub {
-            font-size: 10px;
-            color: var(--muted2);
-            margin-top: 2px
-        }
-
-        .mp-bar {
-            height: 3px;
-            background: var(--border);
-            border-radius: 2px;
-            margin-top: 6px;
-            overflow: hidden
-        }
-
-        .mp-fill {
-            height: 100%;
-            border-radius: 2px;
-            transition: width .4s ease, background .4s
-        }
-
-        /* Eye contact gauge - special big display */
-        .mp-card.ec-card {
-            grid-column: 1/-1;
+            cursor: pointer;
+            transition: all 0.15s;
             display: flex;
             align-items: center;
-            gap: 14px
+            gap: 8px;
         }
 
-        .ec-arc {
-            position: relative;
-            width: 70px;
-            height: 70px;
-            flex-shrink: 0
+        .btn-accent {
+            background: var(--accent);
+            color: #000;
         }
 
-        .ec-arc svg {
-            width: 70px;
-            height: 70px
+        .btn-accent:hover {
+            background: #00e88d;
+            transform: translateY(-1px);
         }
 
-        .ec-arc .arc-bg {
-            fill: none;
-            stroke: var(--border);
-            stroke-width: 6
+        .btn-ghost {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border);
         }
 
-        .ec-arc .arc-fill {
-            fill: none;
-            stroke: var(--accent);
-            stroke-width: 6;
-            stroke-linecap: round;
-            transform: rotate(-90deg);
-            transform-origin: center;
-            transition: stroke-dashoffset .5s ease, stroke .5s
-        }
-
-        .ec-label {
-            font-family: 'Space Mono', monospace;
-            font-size: 14px;
-            font-weight: 700;
+        .btn-ghost:hover {
+            border-color: var(--accent);
             color: var(--accent);
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%)
         }
 
-        .ec-info {
-            flex: 1
+        .btn-danger {
+            background: var(--red);
+            color: #fff;
         }
 
-        .ec-info .mp-label {
-            margin-bottom: 4px
+        .btn-danger:hover {
+            background: #e03355;
         }
 
-        .ec-info .mp-val {
-            font-size: 32px
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
         }
 
-        /* Blink rate indicator */
-        #blinkDot {
-            display: inline-block;
+        /* Pipeline status bar */
+        .pipeline {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 20px;
+            margin-bottom: 28px;
+            overflow-x: auto;
+        }
+
+        .pipe-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-family: 'Space Mono', monospace;
+            color: var(--muted);
+            white-space: nowrap;
+            transition: color 0.3s;
+        }
+
+        .pipe-step.active {
+            color: var(--accent);
+        }
+
+        .pipe-step.done {
+            color: var(--accent2);
+        }
+
+        .pipe-step.error {
+            color: var(--red);
+        }
+
+        .pipe-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: var(--muted);
-            margin-left: 4px;
-            vertical-align: middle;
-            transition: background .1s
+            background: var(--border);
+            transition: background 0.3s;
         }
 
-        #blinkDot.blink {
+        .pipe-step.active .pipe-dot {
             background: var(--accent);
-            box-shadow: 0 0 6px var(--accent)
+            box-shadow: 0 0 8px var(--accent);
+            animation: pulse 1s infinite;
         }
 
-        /* Head pose compass */
-        .pose-compass {
-            width: 50px;
-            height: 50px;
-            position: relative;
-            flex-shrink: 0
+        .pipe-step.done .pipe-dot {
+            background: var(--accent2);
         }
 
-        .pose-compass svg {
-            width: 50px;
-            height: 50px
+        .pipe-step.error .pipe-dot {
+            background: var(--red);
         }
 
-        /* ── BODY LANGUAGE (GEMINI) PANEL ── */
-        .bl-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 7px
+        .pipe-arrow {
+            color: var(--border);
+            margin: 0 10px;
+            font-size: 14px;
         }
 
-        .bl-item {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 7px;
-            padding: 9px 8px;
-            text-align: center
-        }
+        @keyframes pulse {
 
-        .bl-label {
-            font-family: 'Space Mono', monospace;
-            font-size: 8px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            color: var(--muted2);
-            margin-bottom: 3px
-        }
+            0%,
+            100% {
+                opacity: 1;
+            }
 
-        .bl-val {
-            font-family: 'Space Mono', monospace;
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--accent)
-        }
-
-        .bl-bar {
-            height: 3px;
-            background: var(--border);
-            border-radius: 2px;
-            margin-top: 5px;
-            overflow: hidden
-        }
-
-        .bl-fill {
-            height: 100%;
-            border-radius: 2px;
-            transition: width .5s, background .5s
-        }
-
-        #blFeedback {
-            margin-top: 8px;
-            font-size: 11px;
-            color: var(--warn);
-            min-height: 16px;
-            font-style: italic;
-            line-height: 1.4
-        }
-
-        /* ── SPEECH BUBBLES ── */
-        #youBubble {
-            background: #060d18;
-            border-left: 3px solid var(--accent);
-            color: #bae6fd;
-            padding: 10px 14px;
-            border-radius: 0 6px 6px 0;
-            min-height: 36px;
-            font-size: 13px;
-            margin-bottom: 10px;
-            line-height: 1.5
-        }
-
-        #sarahBubble {
-            background: #0d0818;
-            border-left: 3px solid var(--accent2);
-            color: #e9d5ff;
-            padding: 10px 14px;
-            border-radius: 0 6px 6px 0;
-            min-height: 56px;
-            font-size: 15px;
-            font-weight: 500;
-            line-height: 1.5
-        }
-
-        /* ── STAR METRICS ── */
-        .metrics {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 7px;
-            margin-top: 8px
-        }
-
-        .metric-item {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            padding: 8px 10px;
-            border-radius: 7px;
-            min-width: 88px;
-            font-family: 'Space Mono', monospace
-        }
-
-        .mi-label {
-            color: var(--muted2);
-            font-size: 8px;
-            letter-spacing: .5px;
-            margin-bottom: 2px
-        }
-
-        .mi-val {
-            font-size: 20px;
-            color: var(--accent);
-            font-weight: 700
-        }
-
-        .mbar {
-            height: 3px;
-            background: var(--border);
-            border-radius: 2px;
-            margin-top: 4px;
-            overflow: hidden
-        }
-
-        .mfill {
-            height: 100%;
-            border-radius: 2px;
-            transition: width .5s, background .5s
-        }
-
-        .feedback-chip {
-            background: #120f00;
-            border: 1px solid #a16207;
-            border-radius: 6px;
-            padding: 7px 10px;
-            font-size: 11px;
-            color: #fde047;
-            flex-basis: 100%;
-            font-style: italic
-        }
-
-        /* ── LOG ── */
-        #log {
-            white-space: pre-wrap;
-            max-height: 150px;
-            overflow-y: auto;
-            font-size: 9.5px;
-            color: var(--muted);
-            background: var(--bg);
-            padding: 9px;
-            border-radius: 6px;
-            font-family: 'Space Mono', monospace
-        }
-
-        /* ── INTERRUPT TOAST ── */
-        #interruptToast {
-            position: fixed;
-            top: 16px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-100px);
-            background: #1a0505;
-            border: 2px solid var(--danger);
-            color: #fca5a5;
-            padding: 10px 22px;
-            border-radius: 50px;
-            font-family: 'Space Mono', monospace;
-            font-size: 12px;
-            font-weight: 700;
-            z-index: 99999;
-            transition: transform .35s cubic-bezier(.34, 1.56, .64, 1);
-            white-space: nowrap;
-            box-shadow: 0 4px 30px rgba(239, 68, 68, .35);
-            display: flex;
-            align-items: center;
-            gap: 8px
-        }
-
-        #interruptToast.show {
-            transform: translateX(-50%) translateY(0)
-        }
-
-        /* ── SAVE INDICATOR ── */
-        #saveIndicator {
-            position: fixed;
-            bottom: 16px;
-            right: 16px;
-            background: var(--ok);
-            color: #000;
-            padding: 7px 14px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 700;
-            opacity: 0;
-            transition: opacity .3s;
-            pointer-events: none;
-            font-family: 'Space Mono', monospace
-        }
-
-        #saveIndicator.show {
-            opacity: 1
-        }
-
-        /* Spinner */
-        #analysisRing {
-            display: none;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            border: 2px solid var(--warn);
-            border-top-color: transparent;
-            animation: spin 1s linear infinite;
-            vertical-align: middle;
-            margin-left: 6px
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg)
+            50% {
+                opacity: 0.4;
             }
         }
 
-        /* Firebase */
-        #firebaseBox input {
-            width: 100%;
-            margin-bottom: 5px
+        /* Main grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
         }
 
-        .fb-row {
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .panel-header {
             display: flex;
-            gap: 8px;
             align-items: center;
-            flex-wrap: wrap;
-            margin-top: 5px
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface2);
         }
 
-        .session-card {
-            background: var(--bg);
+        .panel-title {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badge {
+            font-family: 'Space Mono', monospace;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 3px 7px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .badge-green {
+            background: rgba(0, 255, 157, 0.15);
+            color: var(--accent);
+        }
+
+        .badge-purple {
+            background: rgba(123, 97, 255, 0.15);
+            color: var(--accent2);
+        }
+
+        .badge-orange {
+            background: rgba(255, 107, 53, 0.15);
+            color: var(--warn);
+        }
+
+        .badge-red {
+            background: rgba(255, 68, 102, 0.15);
+            color: var(--red);
+        }
+
+        .panel-body {
+            padding: 20px;
+        }
+
+        /* Waveform visualizer */
+        .waveform-container {
+            position: relative;
+            height: 80px;
+            background: var(--surface2);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+        }
+
+        #waveCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .vad-indicator {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            font-family: 'Space Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 1px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: rgba(255, 68, 102, 0.2);
+            color: var(--red);
+            transition: all 0.2s;
+        }
+
+        .vad-indicator.speaking {
+            background: rgba(0, 255, 157, 0.2);
+            color: var(--accent);
+            box-shadow: 0 0 10px rgba(0, 255, 157, 0.3);
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* Stats row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .stat-box {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-val {
+            font-family: 'Space Mono', monospace;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--accent);
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        /* Config panel */
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .config-item label {
+            display: block;
+            font-size: 10px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .config-item select,
+        .config-item input[type="range"] {
+            width: 100%;
+            background: var(--surface2);
             border: 1px solid var(--border);
             border-radius: 6px;
-            padding: 9px 12px;
-            margin-bottom: 6px;
-            font-size: 11px;
+            color: var(--text);
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            padding: 8px 10px;
+            outline: none;
             cursor: pointer;
-            transition: border-color .2s
         }
 
-        .session-card:hover {
-            border-color: var(--accent)
+        .config-item select:focus {
+            border-color: var(--accent);
         }
 
-        .session-card .sc-head {
+        .range-row {
             display: flex;
-            justify-content: space-between;
-            color: var(--muted2);
-            margin-bottom: 3px;
-            font-family: 'Space Mono', monospace;
-            font-size: 9px
-        }
-
-        .session-card .sc-scores {
-            display: flex;
+            align-items: center;
             gap: 8px;
-            flex-wrap: wrap;
+        }
+
+        .range-val {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
             color: var(--accent);
+            min-width: 35px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px !important;
+            background: var(--border) !important;
+            padding: 0 !important;
+            border: none !important;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .toggle-row:last-child {
+            border-bottom: none;
+        }
+
+        .toggle-label {
+            font-size: 13px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-sub {
+            font-size: 11px;
+            color: var(--muted);
+            display: block;
+            margin-top: 2px;
+        }
+
+        .toggle {
+            position: relative;
+            width: 38px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--border);
+            border-radius: 22px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .toggle-slider:before {
+            content: '';
+            position: absolute;
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background: var(--muted);
+            border-radius: 50%;
+            transition: 0.2s;
+        }
+
+        .toggle input:checked+.toggle-slider {
+            background: rgba(0, 255, 157, 0.3);
+        }
+
+        .toggle input:checked+.toggle-slider:before {
+            transform: translateX(16px);
+            background: var(--accent);
+        }
+
+        /* Transcript area */
+        .transcript-full {
+            grid-column: 1 / -1;
+        }
+
+        .transcript-box {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 18px;
+            min-height: 140px;
             font-family: 'Space Mono', monospace;
-            font-size: 10px
+            font-size: 13px;
+            line-height: 1.8;
+            color: var(--text);
+            position: relative;
         }
 
-        .session-card .sc-feedback {
-            color: #fde047;
-            margin-top: 3px;
-            font-size: 10px
+        .transcript-box.streaming::after {
+            content: '▋';
+            animation: blink 0.7s infinite;
+            color: var(--accent);
         }
 
-        .session-card .sc-transcript {
-            color: var(--muted2);
-            margin-top: 5px;
-            font-size: 10px;
-            max-height: 50px;
-            overflow: hidden
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
         }
 
-        .session-card.expanded .sc-transcript {
-            max-height: none
+        .transcript-placeholder {
+            color: var(--muted);
+            font-style: italic;
         }
 
-        /* Dual-source comparison badges */
-        .source-tag {
-            display: inline-block;
-            padding: 1px 6px;
+        .chunk-highlight {
+            background: rgba(0, 255, 157, 0.1);
             border-radius: 3px;
-            font-size: 8px;
+            padding: 0 2px;
+            transition: background 1s;
+        }
+
+        /* Log panel */
+        .log-box {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            height: 180px;
+            overflow-y: auto;
             font-family: 'Space Mono', monospace;
-            font-weight: 700;
-            letter-spacing: .5px;
-            vertical-align: middle;
-            margin-left: 4px
+            font-size: 11px;
+            line-height: 1.7;
         }
 
-        .source-tag.mp {
-            background: #00d4ff22;
-            border: 1px solid var(--accent);
-            color: var(--accent)
+        .log-box::-webkit-scrollbar {
+            width: 4px;
         }
 
-        .source-tag.ai {
-            background: #a855f722;
-            border: 1px solid var(--accent2);
-            color: var(--accent2)
+        .log-box::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .log-box::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 2px;
+        }
+
+        .log-entry {
+            display: flex;
+            gap: 10px;
+        }
+
+        .log-time {
+            color: var(--muted);
+            flex-shrink: 0;
+        }
+
+        .log-info {
+            color: var(--text);
+        }
+
+        .log-success {
+            color: var(--accent);
+        }
+
+        .log-warn {
+            color: var(--warn);
+        }
+
+        .log-error {
+            color: var(--red);
+        }
+
+        /* Refined panel */
+        .refined-box {
+            background: linear-gradient(135deg, rgba(123, 97, 255, 0.05), rgba(0, 255, 157, 0.05));
+            border: 1px solid rgba(123, 97, 255, 0.3);
+            border-radius: 8px;
+            padding: 18px;
+            min-height: 100px;
+            font-family: 'Syne', sans-serif;
+            font-size: 15px;
+            line-height: 1.7;
+            color: var(--text);
+        }
+
+        /* Chunk timeline */
+        .chunk-timeline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 12px;
+        }
+
+        .chunk-pill {
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .chunk-pill.sent {
+            border-color: var(--accent2);
+            color: var(--accent2);
+        }
+
+        .chunk-pill.done {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(0, 255, 157, 0.08);
+        }
+
+        .chunk-pill.error {
+            border-color: var(--red);
+            color: var(--red);
+        }
+
+        /* Bottom action bar */
+        .action-bar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 16px 0;
+            border-top: 1px solid var(--border);
+            margin-top: 20px;
+        }
+
+        .record-btn {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            border: 2px solid var(--accent);
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .record-btn::before {
+            content: '';
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent);
+            transition: all 0.2s;
+        }
+
+        .record-btn.recording {
+            border-color: var(--red);
+            animation: ring 1.5s infinite;
+        }
+
+        .record-btn.recording::before {
+            background: var(--red);
+            border-radius: 4px;
+            width: 16px;
+            height: 16px;
+        }
+
+        @keyframes ring {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 68, 102, 0.5);
+            }
+
+            70% {
+                box-shadow: 0 0 0 14px rgba(255, 68, 102, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 68, 102, 0);
+            }
+        }
+
+        .record-status {
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+        }
+
+        .status-idle {
+            color: var(--muted);
+        }
+
+        .status-recording {
+            color: var(--red);
+        }
+
+        .status-processing {
+            color: var(--warn);
+        }
+
+        /* File upload zone */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 28px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 16px;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.drag-over {
+            border-color: var(--accent);
+            background: rgba(0, 255, 157, 0.04);
+        }
+
+        .upload-zone p {
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: 8px;
+        }
+
+        .upload-zone .upload-icon {
+            font-size: 32px;
+        }
+
+        #fileInput {
+            display: none;
         }
 
         /* Tabs */
         .tabs {
             display: flex;
-            gap: 2px;
-            margin-bottom: 12px
+            gap: 0;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border);
         }
 
         .tab {
             font-family: 'Space Mono', monospace;
-            font-size: 9px;
+            font-size: 11px;
             letter-spacing: 1px;
-            padding: 5px 12px;
-            border-radius: 4px;
+            text-transform: uppercase;
+            padding: 10px 16px;
+            border: none;
+            background: transparent;
+            color: var(--muted);
             cursor: pointer;
-            border: 1px solid var(--border);
-            color: var(--muted2);
-            transition: all .2s;
-            user-select: none
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            transition: all 0.15s;
         }
 
         .tab.active {
-            background: var(--accent);
-            color: #000;
-            border-color: var(--accent);
-            font-weight: 700
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .tab:hover:not(.active) {
+            color: var(--text);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Noise meter */
+        .noise-meter {
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .noise-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            transition: width 0.1s;
+            width: 0%;
+        }
+
+        .section-label {
+            font-size: 10px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-family: 'Space Mono', monospace;
+            margin-bottom: 8px;
+        }
+
+        /* Retry indicator */
+        .retry-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            color: var(--warn);
+            background: rgba(255, 107, 53, 0.1);
+            border: 1px solid rgba(255, 107, 53, 0.3);
+            border-radius: 4px;
+            padding: 3px 8px;
         }
     </style>
 </head>
 
 <body>
-
     <div class="container">
-        <!-- HEADER -->
-        <div class="header">
-            <div>
-                <h1>🎙 VISIONARY RECRUITER</h1>
-                <div class="subtitle">Live Interview Coach v6.0 — MediaPipe FaceMesh + Gemini AI</div>
+
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <div class="logo-icon">🎙</div>
+                <div class="logo-text">
+                    <h1>AudioLens</h1>
+                    <span>Precision Transcription Engine</span>
+                </div>
             </div>
-            <div class="header-badge">468 LANDMARKS · 30FPS · ZERO LATENCY</div>
-            <span id="mpStatus"><span>●</span> MP LOADING</span>
+            <div class="api-key-section">
+                <input class="api-input" type="password" id="apiKey" placeholder="sk-ant-api... (Gemini key)" />
+                <button class="btn btn-accent" onclick="saveKey()">Connect</button>
+            </div>
+        </header>
+
+        <!-- Pipeline Status -->
+        <div class="pipeline">
+            <div class="pipe-step" id="step-input">
+                <div class="pipe-dot"></div> INPUT
+            </div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step" id="step-preprocess">
+                <div class="pipe-dot"></div> PREPROCESS
+            </div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step" id="step-vad">
+                <div class="pipe-dot"></div> VAD
+            </div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step" id="step-chunk">
+                <div class="pipe-dot"></div> CHUNK
+            </div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step" id="step-api">
+                <div class="pipe-dot"></div> GEMINI API
+            </div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step" id="step-merge">
+                <div class="pipe-dot"></div> MERGE
+            </div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step" id="step-refine">
+                <div class="pipe-dot"></div> REFINE
+            </div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step" id="step-done">
+                <div class="pipe-dot"></div> OUTPUT
+            </div>
         </div>
 
-        <!-- Firebase -->
-        <div class="box" id="firebaseBox">
-            <div class="box-title"><span class="dot"></span> Firestore (Optional)</div>
-            <input type="text" id="fbApiKey" placeholder="Firebase apiKey">
-            <input type="text" id="fbProjectId" placeholder="Firebase projectId">
-            <input type="text" id="fbAppId" placeholder="Firebase appId">
-            <div class="fb-row">
-                <button id="fbConnectBtn">Connect Firebase</button>
-                <button id="fbLoadBtn" disabled>Load History</button>
-                <span id="fbStatus" style="font-size:11px;color:var(--muted)">Not connected</span>
-            </div>
-            <div id="historyPanel" style="display:none;margin-top:12px">
-                <div class="box-title"><span class="dot"></span> Past Sessions</div>
-                <div id="sessionList"></div>
-            </div>
+        <!-- Tabs: Live vs File -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('live', this)">🎙 Live Mic</button>
+            <button class="tab" onclick="switchTab('file', this)">📁 Upload File</button>
+            <button class="tab" onclick="switchTab('settings', this)">⚙ Settings</button>
         </div>
 
-        <!-- Connect row -->
-        <div class="box">
-            <div class="connect-row">
-                <input type="password" id="apiKey" placeholder="Gemini API Key" style="flex:1;min-width:180px">
-                <button class="btn-primary" id="connectBtn">1. Connect</button>
-                <button id="streamBtn" disabled>2. Start Camera + Mic</button>
-                <span class="status-dot" id="statusDot"></span>
-                <span id="status" style="font-size:12px;font-family:'Space Mono',monospace">DISCONNECTED</span>
-                <span id="analysisRing"></span>
-            </div>
-        </div>
-
-        <div class="grid">
-            <!-- LEFT COL -->
-            <div>
-                <!-- Video -->
-                <div class="box">
-                    <div class="box-title"><span class="dot"></span> Camera Feed</div>
-                    <div class="video-container" id="videoWrap">
-                        <video id="videoPreview" autoplay playsinline muted></video>
-                        <canvas id="landmarkCanvas"></canvas>
-                        <div id="gazeReticle"></div>
-                        <div id="analysisBadge"></div>
+        <!-- LIVE TAB -->
+        <div id="tab-live" class="tab-content active">
+            <div class="main-grid">
+                <!-- Mic Panel -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">🎤 Microphone Input</span>
+                        <span class="badge badge-green" id="micBadge">IDLE</span>
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
-                        <button id="micBtn">HOLD<br>TO<br>SPEAK</button>
-                        <div>
-                            <div class="interval-ctrl">
-                                <span>AI scan</span>
-                                <input type="range" id="intervalSlider" min="3" max="15" value="5" step="1">
-                                <span id="intervalLabel">5s</span>
+                    <div class="panel-body">
+                        <div class="waveform-container">
+                            <canvas id="waveCanvas"></canvas>
+                            <div class="vad-indicator" id="vadIndicator">SILENCE</div>
+                        </div>
+                        <div class="section-label">Signal Level</div>
+                        <div class="noise-meter">
+                            <div class="noise-fill" id="noiseFill"></div>
+                        </div>
+                        <div class="action-bar">
+                            <button class="record-btn" id="recordBtn" onclick="toggleRecording()"></button>
+                            <div>
+                                <div class="record-status status-idle" id="recordStatus">Click to start recording</div>
+                                <div style="font-size:11px; color:var(--muted); margin-top:4px;" id="recTimer">00:00
+                                </div>
                             </div>
-                            <div
-                                style="margin-top:6px;font-size:10px;color:var(--muted2);font-family:'Space Mono',monospace">
-                                MediaPipe: real-time<br>
-                                Blink rate: <span id="blinkRateDisplay">--</span>/min
-                                <span id="blinkDot"></span>
+                            <div style="margin-left:auto;">
+                                <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- MediaPipe Real-Time Metrics -->
-                <div class="box">
-                    <div class="box-title"><span class="dot"></span> MediaPipe Biometrics <span
-                            class="source-tag mp">LIVE·30FPS</span></div>
-                    <div class="mp-metrics">
-                        <!-- Eye Contact Arc -->
-                        <div class="mp-card ec-card" id="mpEyeCard">
-                            <div class="ec-arc">
-                                <svg viewBox="0 0 70 70">
-                                    <circle class="arc-bg" cx="35" cy="35" r="28" />
-                                    <circle class="arc-fill" id="eyeArcFill" cx="35" cy="35" r="28"
-                                        stroke-dasharray="175.9" stroke-dashoffset="175.9" />
-                                </svg>
-                                <div class="ec-label" id="mpEyePct">0%</div>
+                        <div class="stats-row">
+                            <div class="stat-box">
+                                <div class="stat-val" id="chunkCount">0</div>
+                                <div class="stat-label">Chunks</div>
                             </div>
-                            <div class="ec-info">
-                                <div class="mp-label">Eye Contact</div>
-                                <div class="mp-val" id="mpEyeVal">--</div>
-                                <div class="mp-sub" id="mpEyeSub">Awaiting face detection…</div>
+                            <div class="stat-box">
+                                <div class="stat-val" id="wordCount">0</div>
+                                <div class="stat-label">Words</div>
                             </div>
-                        </div>
-                        <!-- Head Tilt -->
-                        <div class="mp-card">
-                            <div class="mp-label">Head Tilt</div>
-                            <div class="mp-val" id="mpTilt">0°</div>
-                            <div class="mp-sub" id="mpTiltSub">–</div>
-                            <div class="mp-bar">
-                                <div class="mp-fill" id="mpTiltBar" style="width:50%"></div>
-                            </div>
-                        </div>
-                        <!-- Smile Score -->
-                        <div class="mp-card">
-                            <div class="mp-label">Smile Score</div>
-                            <div class="mp-val" id="mpSmile">--</div>
-                            <div class="mp-sub" id="mpSmileSub">–</div>
-                            <div class="mp-bar">
-                                <div class="mp-fill" id="mpSmileBar" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <!-- Blink Rate -->
-                        <div class="mp-card">
-                            <div class="mp-label">Blink / min</div>
-                            <div class="mp-val" id="mpBlink">--</div>
-                            <div class="mp-sub" id="mpBlinkSub">Normal: 15–20</div>
-                            <div class="mp-bar">
-                                <div class="mp-fill" id="mpBlinkBar" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <!-- Jaw Tension -->
-                        <div class="mp-card">
-                            <div class="mp-label">Jaw Tension</div>
-                            <div class="mp-val" id="mpJaw">--</div>
-                            <div class="mp-sub" id="mpJawSub">–</div>
-                            <div class="mp-bar">
-                                <div class="mp-fill" id="mpJawBar" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <!-- Stress Index -->
-                        <div class="mp-card">
-                            <div class="mp-label">Stress Index <span class="source-tag mp">MP</span></div>
-                            <div class="mp-val" id="mpStress">--</div>
-                            <div class="mp-sub" id="mpStressSub">–</div>
-                            <div class="mp-bar">
-                                <div class="mp-fill" id="mpStressBar" style="width:0%"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="mpFeedback"
-                        style="margin-top:8px;font-size:11px;color:var(--accent);min-height:16px;font-style:italic">
-                    </div>
-                </div>
-
-                <!-- Gemini Body Language (AI Vision) -->
-                <div class="box">
-                    <div class="box-title"><span class="dot"></span> Gemini Vision Analysis <span
-                            class="source-tag ai">AI·PERIODIC</span></div>
-                    <div class="bl-grid">
-                        <div class="bl-item">
-                            <div class="bl-label">Posture</div>
-                            <div class="bl-val" id="bl-posture">--</div>
-                            <div class="bl-bar">
-                                <div class="bl-fill" id="bf-posture" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <div class="bl-item">
-                            <div class="bl-label">Eye Contact</div>
-                            <div class="bl-val" id="bl-eye">--</div>
-                            <div class="bl-bar">
-                                <div class="bl-fill" id="bf-eye" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <div class="bl-item">
-                            <div class="bl-label">Expression</div>
-                            <div class="bl-val" id="bl-expr">--</div>
-                            <div class="bl-bar">
-                                <div class="bl-fill" id="bf-expr" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <div class="bl-item">
-                            <div class="bl-label">Engagement</div>
-                            <div class="bl-val" id="bl-engage">--</div>
-                            <div class="bl-bar">
-                                <div class="bl-fill" id="bf-engage" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <div class="bl-item">
-                            <div class="bl-label">Nerves</div>
-                            <div class="bl-val" id="bl-nerves">--</div>
-                            <div class="bl-bar">
-                                <div class="bl-fill" id="bf-nerves" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <div class="bl-item">
-                            <div class="bl-label">Overall</div>
-                            <div class="bl-val" id="bl-overall" style="color:var(--ok)">--</div>
-                            <div class="bl-bar">
-                                <div class="bl-fill" id="bf-overall" style="width:0%"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="blFeedback"></div>
-                </div>
-            </div>
-
-            <!-- RIGHT COL -->
-            <div>
-                <!-- Interview -->
-                <div class="box">
-                    <div class="box-title"><span class="dot"></span> Live Interview</div>
-                    <div id="youBubble">YOU: (hold mic and speak…)</div>
-                    <div id="sarahBubble" style="margin-top:10px">SARAH: (waiting for connection…)</div>
-                </div>
-
-                <!-- STAR Metrics -->
-                <div class="box">
-                    <div class="box-title"><span class="dot"></span> STAR Evaluation <span
-                            class="source-tag ai">AI·SCORED</span></div>
-                    <div class="metrics" id="metricsDisplay">
-                        <div class="metric-item">
-                            <div class="mi-label">CONFIDENCE</div>
-                            <div class="mi-val">--</div>
-                            <div class="mbar">
-                                <div class="mfill" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="mi-label">SITUATION</div>
-                            <div class="mi-val">--</div>
-                            <div class="mbar">
-                                <div class="mfill" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="mi-label">TASK</div>
-                            <div class="mi-val">--</div>
-                            <div class="mbar">
-                                <div class="mfill" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="mi-label">ACTION</div>
-                            <div class="mi-val">--</div>
-                            <div class="mbar">
-                                <div class="mfill" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="mi-label">RESULT</div>
-                            <div class="mi-val">--</div>
-                            <div class="mbar">
-                                <div class="mfill" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="mi-label">ARTICULATION</div>
-                            <div class="mi-val">--</div>
-                            <div class="mbar">
-                                <div class="mfill" style="width:0%"></div>
+                            <div class="stat-box">
+                                <div class="stat-val" id="confScore">—</div>
+                                <div class="stat-label">Quality</div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Composite Score -->
-                <div class="box">
-                    <div class="box-title"><span class="dot"></span> Composite Score — MP + AI Fusion</div>
-                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-                        <div class="mp-card" style="text-align:center">
-                            <div class="mp-label">MP Score</div>
-                            <div class="mp-val" id="compMp" style="font-size:28px">--</div>
-                        </div>
-                        <div class="mp-card" style="text-align:center">
-                            <div class="mp-label">AI Score</div>
-                            <div class="mp-val" id="compAi" style="font-size:28px;color:var(--accent2)">--</div>
-                        </div>
-                        <div class="mp-card" style="text-align:center;grid-column:span 2">
-                            <div class="mp-label">Overall Presentation</div>
-                            <div class="mp-val" id="compOverall" style="font-size:36px;color:var(--ok)">--</div>
-                        </div>
+                <!-- Processing Panel -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">⚡ Processing Status</span>
+                        <span class="badge badge-purple" id="procBadge">READY</span>
                     </div>
-                    <div id="compFeedback" style="margin-top:8px;font-size:11px;color:var(--muted2);font-style:italic">
+                    <div class="panel-body">
+                        <div class="section-label">Chunk Timeline</div>
+                        <div class="chunk-timeline" id="chunkTimeline">
+                            <span style="font-size:11px; color:var(--muted); font-family:'Space Mono',monospace;">No
+                                chunks yet</span>
+                        </div>
+                        <div style="margin-top:20px;">
+                            <div class="section-label">System Log</div>
+                            <div class="log-box" id="logBox">
+                                <div class="log-entry"><span class="log-time">00:00</span><span
+                                        class="log-info">AudioLens initialized. Ready.</span></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Log -->
-                <div class="box">
-                    <div class="box-title"><span class="dot"></span> Debug Log</div>
-                    <div id="log"></div>
+                <!-- Raw Transcript -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">📝 Raw Transcript</span>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <span class="badge badge-orange" id="rawBadge">EMPTY</span>
+                            <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;"
+                                onclick="copyText('rawTranscript')">Copy</button>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="transcript-box" id="rawTranscript">
+                            <span class="transcript-placeholder">Raw streaming transcription will appear here...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Refined Transcript -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">✨ Refined Output</span>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <span class="badge badge-green" id="refinedBadge">WAITING</span>
+                            <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;"
+                                onclick="copyText('refinedTranscript')">Copy</button>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="refined-box" id="refinedTranscript">
+                            <span class="transcript-placeholder">Refined, grammar-corrected transcript will appear after
+                                refinement pass...</span>
+                        </div>
+                        <div style="margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <button class="btn btn-accent" onclick="refineTranscript()" id="refineBtn" disabled>
+                                ✨ Run Refinement Pass
+                            </button>
+                            <button class="btn btn-ghost" onclick="downloadTranscript()">⬇ Export</button>
+                            <span id="retryChip" style="display:none" class="retry-chip">↻ Retrying...</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- FILE TAB -->
+        <div id="tab-file" class="tab-content">
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">📁 File Upload</span>
+                    <span class="badge badge-orange">SUPPORTS WAV · MP3 · OGG · M4A</span>
+                </div>
+                <div class="panel-body">
+                    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
+                        ondragover="handleDragOver(event)" ondrop="handleDrop(event)"
+                        ondragleave="handleDragLeave(event)">
+                        <div class="upload-icon">🎵</div>
+                        <div style="font-size:15px; font-weight:700; margin-top:8px;">Drop audio file or click to browse
+                        </div>
+                        <p>Supports WAV, MP3, OGG, M4A — file will be resampled to 16kHz mono PCM</p>
+                    </div>
+                    <input type="file" id="fileInput" accept="audio/*" onchange="handleFileSelect(event)" />
+                    <div id="fileInfo" style="display:none; margin-bottom:16px;">
+                        <div class="stat-box"
+                            style="display:inline-flex; align-items:center; gap:12px; text-align:left; padding:12px 16px;">
+                            <span style="font-size:24px;">🎵</span>
+                            <div>
+                                <div style="font-size:13px; font-weight:700;" id="fileName">—</div>
+                                <div style="font-size:11px; color:var(--muted);" id="fileMeta">—</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-accent" id="transcribeFileBtn" onclick="transcribeFile()" disabled>
+                        🚀 Transcribe File
+                    </button>
+                    <div style="margin-top:20px;" id="fileTranscriptArea" style="display:none;">
+                        <div class="section-label">File Transcript</div>
+                        <div class="transcript-box" id="fileTranscript" style="min-height:120px;">
+                            <span class="transcript-placeholder">File transcript will appear here...</span>
+                        </div>
+                        <div class="refined-box" id="fileRefined" style="margin-top:14px; display:none;"></div>
+                        <div style="display:flex; gap:10px; margin-top:14px;">
+                            <button class="btn btn-ghost" onclick="copyText('fileTranscript')">Copy Raw</button>
+                            <button class="btn btn-ghost" onclick="copyText('fileRefined')">Copy Refined</button>
+                            <button class="btn btn-ghost" onclick="downloadFileTranscript()">⬇ Export</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETTINGS TAB -->
+        <div id="tab-settings" class="tab-content">
+            <div class="main-grid">
+                <div class="panel">
+                    <div class="panel-header"><span class="panel-title">🔧 Audio Settings</span></div>
+                    <div class="panel-body">
+                        <div class="config-grid">
+                            <div class="config-item">
+                                <label>Sample Rate</label>
+                                <select id="cfgSampleRate">
+                                    <option value="16000" selected>16000 Hz (optimal)</option>
+                                    <option value="22050">22050 Hz</option>
+                                    <option value="44100">44100 Hz</option>
+                                </select>
+                            </div>
+                            <div class="config-item">
+                                <label>Channels</label>
+                                <select id="cfgChannels">
+                                    <option value="1" selected>Mono (recommended)</option>
+                                    <option value="2">Stereo</option>
+                                </select>
+                            </div>
+                            <div class="config-item">
+                                <label>Chunk Size (sec)</label>
+                                <div class="range-row">
+                                    <input type="range" id="cfgChunkSize" min="0.3" max="2.0" step="0.1" value="0.8"
+                                        oninput="document.getElementById('chunkSizeVal').textContent=this.value+'s'" />
+                                    <span class="range-val" id="chunkSizeVal">0.8s</span>
+                                </div>
+                            </div>
+                            <div class="config-item">
+                                <label>Chunk Overlap (sec)</label>
+                                <div class="range-row">
+                                    <input type="range" id="cfgOverlap" min="0" max="0.5" step="0.05" value="0.2"
+                                        oninput="document.getElementById('overlapVal').textContent=this.value+'s'" />
+                                    <span class="range-val" id="overlapVal">0.2s</span>
+                                </div>
+                            </div>
+                            <div class="config-item">
+                                <label>VAD Threshold</label>
+                                <div class="range-row">
+                                    <input type="range" id="cfgVadThresh" min="0.01" max="0.3" step="0.01" value="0.05"
+                                        oninput="document.getElementById('vadVal').textContent=this.value" />
+                                    <span class="range-val" id="vadVal">0.05</span>
+                                </div>
+                            </div>
+                            <div class="config-item">
+                                <label>Max Retries</label>
+                                <select id="cfgRetries">
+                                    <option value="2">2</option>
+                                    <option value="3" selected>3</option>
+                                    <option value="5">5</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header"><span class="panel-title">🧠 AI Features</span></div>
+                    <div class="panel-body">
+                        <div class="toggle-row">
+                            <div class="toggle-label">
+                                Noise Suppression
+                                <span class="toggle-sub">WebRTC-style background removal</span>
+                            </div>
+                            <label class="toggle"><input type="checkbox" id="cfgNoise" checked><span
+                                    class="toggle-slider"></span></label>
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-label">
+                                Voice Activity Detection
+                                <span class="toggle-sub">Only send speech segments to API</span>
+                            </div>
+                            <label class="toggle"><input type="checkbox" id="cfgVad" checked><span
+                                    class="toggle-slider"></span></label>
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-label">
+                                Prompt Conditioning
+                                <span class="toggle-sub">Guide Gemini for better accuracy</span>
+                            </div>
+                            <label class="toggle"><input type="checkbox" id="cfgPrompt" checked><span
+                                    class="toggle-slider"></span></label>
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-label">
+                                Refinement Pass
+                                <span class="toggle-sub">Auto-clean transcript after recording</span>
+                            </div>
+                            <label class="toggle"><input type="checkbox" id="cfgRefine" checked><span
+                                    class="toggle-slider"></span></label>
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-label">
+                                Exponential Backoff
+                                <span class="toggle-sub">Smart retry on API failures</span>
+                            </div>
+                            <label class="toggle"><input type="checkbox" id="cfgBackoff" checked><span
+                                    class="toggle-slider"></span></label>
+                        </div>
+                        <div class="toggle-row">
+                            <div class="toggle-label">
+                                Remove Filler Words
+                                <span class="toggle-sub">Strip um, uh, like from output</span>
+                            </div>
+                            <label class="toggle"><input type="checkbox" id="cfgFiller" checked><span
+                                    class="toggle-slider"></span></label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel" style="grid-column:1/-1;">
+                    <div class="panel-header"><span class="panel-title">💬 Prompt Template</span></div>
+                    <div class="panel-body">
+                        <textarea id="promptTemplate"
+                            style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Space Mono',monospace;font-size:12px;padding:14px;line-height:1.7;resize:vertical;min-height:120px;outline:none;"
+                            spellcheck="false">You are an accurate, professional speech-to-text transcription system.
+
+Transcribe the provided audio clearly and accurately.
+
+Rules:
+- Do NOT hallucinate or add words not spoken
+- Preserve technical terms and proper nouns exactly
+- Ignore filler sounds: "um", "uh", "like", "you know"
+- Use correct punctuation and capitalization
+- Output ONLY the transcript text, nothing else</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
-    <!-- Interrupt Toast -->
-    <div id="interruptToast">
-        <span>⚠️</span>
-        <span id="toastMsg">Fix your posture!</span>
-    </div>
-    <div id="saveIndicator">✅ Saved</div>
-
-    <!-- ═══════ FIREBASE MODULE ═══════ -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-        import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp }
-            from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-
-        let db = null, sessionId = null;
-        let transcriptLog = [], latestMetrics = null;
-
-        document.getElementById('fbConnectBtn').onclick = async () => {
-            const a = document.getElementById('fbApiKey').value.trim();
-            const p = document.getElementById('fbProjectId').value.trim();
-            const i = document.getElementById('fbAppId').value.trim();
-            if (!a || !p || !i) return alert('Fill all Firebase fields.');
-            try {
-                const app = initializeApp({ apiKey: a, projectId: p, appId: i }, 'rec-' + Date.now());
-                db = getFirestore(app);
-                document.getElementById('fbStatus').textContent = '✅ Connected';
-                document.getElementById('fbStatus').style.color = 'var(--ok)';
-                document.getElementById('fbLoadBtn').disabled = false;
-            } catch (e) { document.getElementById('fbStatus').textContent = '❌ ' + e.message; }
-        };
-
-        document.getElementById('fbLoadBtn').onclick = async () => {
-            if (!db) return;
-            try {
-                const q = query(collection(db, 'sessions'), orderBy('startedAt', 'desc'));
-                const snap = await getDocs(q);
-                const panel = document.getElementById('historyPanel');
-                const list = document.getElementById('sessionList');
-                list.innerHTML = '';
-                if (snap.empty) { list.innerHTML = '<div style="color:var(--muted);font-size:11px">No sessions yet.</div>'; }
-                else snap.forEach(doc => renderCard(doc.id, doc.data(), list));
-                panel.style.display = 'block';
-            } catch (e) { }
-        };
-
-        function renderCard(id, d, container) {
-            const card = document.createElement('div');
-            card.className = 'session-card';
-            const date = d.startedAt?.toDate?.()?.toLocaleString() || '?';
-            const m = d.finalMetrics || {};
-            const avg = ['confidence', 'star_situation', 'star_task', 'star_action', 'star_result', 'articulation']
-                .map(k => m[k] ?? 0).reduce((a, b) => a + b, 0) / 6;
-            card.innerHTML = `<div class="sc-head"><span>🗓 ${date}</span><span>Avg ${avg.toFixed(0)}/100</span></div>
-    <div class="sc-scores"><span>CONF ${m.confidence ?? '--'}</span><span>S ${m.star_situation ?? '--'}</span><span>T ${m.star_task ?? '--'}</span><span>A ${m.star_action ?? '--'}</span><span>R ${m.star_result ?? '--'}</span></div>
-    ${m.feedback ? `<div class="sc-feedback">"${m.feedback}"</div>` : ''}
-    <div class="sc-transcript">${(d.transcript || []).map(t => `<strong>${t.role}:</strong> ${t.text}`).join('<br>')}</div>`;
-            card.onclick = () => card.classList.toggle('expanded');
-            container.appendChild(card);
-        }
-
-        async function startSession() {
-            transcriptLog = []; latestMetrics = null; sessionId = null;
-            if (!db) return;
-            try {
-                const ref = await addDoc(collection(db, 'sessions'), { startedAt: serverTimestamp(), status: 'in_progress', transcript: [], finalMetrics: null });
-                sessionId = ref.id;
-            } catch (e) { }
-        }
-
-        async function saveMetric(args) {
-            latestMetrics = args;
-            if (!db || !sessionId) return;
-            try {
-                const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-                await updateDoc(doc(db, 'sessions', sessionId), { finalMetrics: args });
-                const el = document.getElementById('saveIndicator');
-                el.textContent = '✅ Saved'; el.classList.add('show');
-                setTimeout(() => el.classList.remove('show'), 2000);
-            } catch (e) { }
-        }
-
-        async function addTranscript(role, text) {
-            if (!text?.trim() || !db || !sessionId) return;
-            try {
-                const { doc, updateDoc, arrayUnion } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-                await updateDoc(doc(db, 'sessions', sessionId), { transcript: arrayUnion({ role, text: text.trim(), ts: new Date().toISOString() }) });
-            } catch (e) { }
-        }
-
-        async function endSession() {
-            if (!db || !sessionId) return;
-            try {
-                const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-                await updateDoc(doc(db, 'sessions', sessionId), { status: 'completed', endedAt: serverTimestamp(), finalMetrics: latestMetrics });
-            } catch (e) { }
-            sessionId = null;
-        }
-
-        window.fbStartSession = startSession;
-        window.fbSaveMetric = saveMetric;
-        window.fbAddTranscript = addTranscript;
-        window.fbEndSession = endSession;
-    </script>
-
-    <!-- ═══════ MEDIAPIPE FACE MESH ═══════ -->
     <script>
-        // ── MediaPipe state ──
-        let mpFaceMesh = null, mpCamera = null;
-        let mpActive = false;
+        // ─── State ───────────────────────────────────────────────────────────────────
+        let apiKey = '';
+        let mediaRecorder = null;
+        let audioContext = null;
+        let analyser = null;
+        let animFrame = null;
+        let isRecording = false;
+        let recordingStart = null;
+        let timerInterval = null;
+        let rawChunks = [];
+        let rawText = '';
+        let chunkIndex = 0;
+        let uploadedFile = null;
+        let processorNode = null;
+        let sourceNode = null;
+        let scriptProcessor = null;
+        let recordedSamples = [];
+        let sampleRate = 16000;
+        let silenceFrames = 0;
+        const SILENCE_THRESHOLD = 15;
 
-        // Blink tracking
-        let leftEAR = 0, rightEAR = 0;
-        let blinkCount = 0, blinkStartTime = Date.now();
-        let wasBlinking = false;
-        let lastBlinkFlash = 0;
-
-        // Rolling averages
-        const EYE_WINDOW = 60; // frames
-        let eyeContactHistory = new Array(EYE_WINDOW).fill(0);
-        let eyeContactIdx = 0;
-
-        // Head pose history
-        let tiltHistory = [];
-
-        // Stress accumulator
-        let stressHistory = [];
-
-        const CIRCUMFERENCE = 2 * Math.PI * 28; // arc circumference
-
-        const mpEl = {
-            status: document.getElementById('mpStatus'),
-            eyePct: document.getElementById('mpEyePct'),
-            eyeVal: document.getElementById('mpEyeVal'),
-            eyeSub: document.getElementById('mpEyeSub'),
-            eyeArc: document.getElementById('eyeArcFill'),
-            tilt: document.getElementById('mpTilt'),
-            tiltSub: document.getElementById('mpTiltSub'),
-            tiltBar: document.getElementById('mpTiltBar'),
-            smile: document.getElementById('mpSmile'),
-            smileSub: document.getElementById('mpSmileSub'),
-            smileBar: document.getElementById('mpSmileBar'),
-            blink: document.getElementById('mpBlink'),
-            blinkSub: document.getElementById('mpBlinkSub'),
-            blinkBar: document.getElementById('mpBlinkBar'),
-            blinkRate: document.getElementById('blinkRateDisplay'),
-            blinkDot: document.getElementById('blinkDot'),
-            jaw: document.getElementById('mpJaw'),
-            jawSub: document.getElementById('mpJawSub'),
-            jawBar: document.getElementById('mpJawBar'),
-            stress: document.getElementById('mpStress'),
-            stressSub: document.getElementById('mpStressSub'),
-            stressBar: document.getElementById('mpStressBar'),
-            feedback: document.getElementById('mpFeedback'),
-            compMp: document.getElementById('compMp'),
-            compOverall: document.getElementById('compOverall'),
-            compFeedback: document.getElementById('compFeedback'),
-        };
-
-        // Eye aspect ratio from landmarks
-        function eyeAspectRatio(eye) {
-            // eye is array of {x,y} points for 6 eye landmarks
-            // EAR = (|p2-p6| + |p3-p5|) / (2*|p1-p4|)
-            const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-            const v1 = dist(eye[1], eye[5]);
-            const v2 = dist(eye[2], eye[4]);
-            const h = dist(eye[0], eye[3]);
-            return h < 0.001 ? 0 : (v1 + v2) / (2 * h);
+        // ─── Helpers ─────────────────────────────────────────────────────────────────
+        function log(msg, type = 'info') {
+            const box = document.getElementById('logBox');
+            const t = new Date();
+            const ts = `${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}`;
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">${ts}</span><span class="log-${type}">${msg}</span>`;
+            box.appendChild(entry);
+            box.scrollTop = box.scrollHeight;
         }
 
-        // MediaPipe FaceMesh landmark indices
-        // Left eye: 33,160,158,133,153,144
-        // Right eye: 362,385,387,263,373,380
-        // Mouth corners: 61,291
-        // Jaw open: 13,14
-        // Nose tip: 1
-        // Left/right cheek: 234,454
+        function setStep(id, state) {
+            const el = document.getElementById('step-' + id);
+            if (!el) return;
+            el.className = 'pipe-step ' + (state || '');
+        }
 
-        const L_EYE = [33, 160, 158, 133, 153, 144];
-        const R_EYE = [362, 385, 387, 263, 373, 380];
-        const MOUTH_L = 61, MOUTH_R = 291, MOUTH_TOP = 13, MOUTH_BOT = 14;
-        const NOSE_TIP = 1, LEFT_CHEEK = 234, RIGHT_CHEEK = 454;
-        const LEFT_JAW = 149, RIGHT_JAW = 378;
+        function resetSteps() {
+            ['input', 'preprocess', 'vad', 'chunk', 'api', 'merge', 'refine', 'done'].forEach(s => setStep(s, ''));
+        }
 
-        function processResults(results) {
-            const canvas = document.getElementById('landmarkCanvas');
-            const ctx = canvas.getContext('2d');
-            const vid = document.getElementById('videoPreview');
-            canvas.width = vid.clientWidth;
-            canvas.height = vid.clientHeight;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        function updateStat(id, val) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        }
 
-            if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-                mpEl.eyeSub.textContent = 'No face detected';
+        function switchTab(name, btn) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + name).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        function saveKey() {
+            apiKey = document.getElementById('apiKey').value.trim();
+            if (apiKey) {
+                log('API key configured ✓', 'success');
+                document.querySelector('.btn-accent').textContent = '✓ Connected';
+            }
+        }
+
+        function copyText(id) {
+            const el = document.getElementById(id);
+            const text = el.innerText.replace(/Raw streaming.*|Refined.*|File transcript.*|here\.\.\./g, '').trim();
+            navigator.clipboard.writeText(text).then(() => log('Copied to clipboard ✓', 'success'));
+        }
+
+        function clearAll() {
+            rawText = '';
+            rawChunks = [];
+            chunkIndex = 0;
+            recordedSamples = [];
+            document.getElementById('rawTranscript').innerHTML = '<span class="transcript-placeholder">Raw streaming transcription will appear here...</span>';
+            document.getElementById('refinedTranscript').innerHTML = '<span class="transcript-placeholder">Refined transcript will appear after refinement pass...</span>';
+            document.getElementById('chunkTimeline').innerHTML = '<span style="font-size:11px;color:var(--muted);font-family:\'Space Mono\',monospace;">No chunks yet</span>';
+            updateStat('chunkCount', '0');
+            updateStat('wordCount', '0');
+            updateStat('confScore', '—');
+            document.getElementById('refineBtn').disabled = true;
+            document.getElementById('rawBadge').textContent = 'EMPTY';
+            document.getElementById('refinedBadge').textContent = 'WAITING';
+            resetSteps();
+            log('Cleared all data', 'warn');
+        }
+
+        // ─── Audio Recording ──────────────────────────────────────────────────────────
+        async function toggleRecording() {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
+        async function startRecording() {
+            if (!apiKey) {
+                log('⚠ Enter your API key first', 'error');
+                alert('Please enter your Gemini/Claude API key first.');
                 return;
             }
 
-            const lm = results.multiFaceLandmarks[0];
-            const W = canvas.width, H = canvas.height;
-            const pt = i => ({ x: lm[i].x, y: lm[i].y, z: lm[i].z || 0 });
-
-            // ── 1. EYE CONTACT ──
-            // Estimate gaze by comparing nose/eye positions
-            // If eyes are roughly centered on the camera, eye contact is high
-            const nose = pt(NOSE_TIP);
-            const lCheek = pt(LEFT_CHEEK);
-            const rCheek = pt(RIGHT_CHEEK);
-            const faceW = Math.abs(rCheek.x - lCheek.x);
-            const faceCenterX = (lCheek.x + rCheek.x) / 2;
-
-            // Horizontal deviation from camera center (0.5)
-            const hDev = Math.abs(faceCenterX - 0.5) / Math.max(0.001, faceW);
-            // Vertical: nose y relative to eyes midpoint
-            const leftEyePt = pt(33);
-            const rightEyePt = pt(362);
-            const eyeMidY = (leftEyePt.y + rightEyePt.y) / 2;
-            const vDev = Math.abs(nose.y - eyeMidY - 0.08) / 0.15; // calibrated offset
-
-            const rawEyeContact = Math.max(0, Math.min(100, Math.round((1 - Math.sqrt(hDev * hDev + vDev * vDev) * 1.5) * 100)));
-
-            eyeContactHistory[eyeContactIdx % EYE_WINDOW] = rawEyeContact;
-            eyeContactIdx++;
-            const avgEye = Math.round(eyeContactHistory.reduce((a, b) => a + b, 0) / EYE_WINDOW);
-
-            const eyePct = avgEye + '%';
-            mpEl.eyePct.textContent = eyePct;
-            mpEl.eyeVal.textContent = avgEye;
-            const eyeColor = avgEye >= 70 ? '#22c55e' : avgEye >= 45 ? '#f59e0b' : '#ef4444';
-            mpEl.eyeArc.style.strokeDashoffset = CIRCUMFERENCE * (1 - avgEye / 100);
-            mpEl.eyeArc.style.stroke = eyeColor;
-            mpEl.eyeSub.textContent = avgEye >= 70 ? 'Good camera contact' : avgEye >= 45 ? 'Slightly off-camera' : 'Look at the camera!';
-
-            // Move gaze reticle
-            const reticle = document.getElementById('gazeReticle');
-            if (reticle && mpActive) {
-                reticle.style.display = 'block';
-                reticle.style.left = (nose.x * W) + 'px';
-                reticle.style.top = (nose.y * H) + 'px';
-                reticle.style.borderColor = eyeColor;
-                reticle.querySelector?.(null);
-            }
-
-            // ── 2. BLINK DETECTION ──
-            const leye = [L_EYE.map(i => pt(i))][0];
-            const reye = [R_EYE.map(i => pt(i))][0];
-            const lEAR = eyeAspectRatio(leye);
-            const rEAR = eyeAspectRatio(reye);
-            const avgEAR = (lEAR + rEAR) / 2;
-            const BLINK_THRESH = 0.20;
-            const isBlinking = avgEAR < BLINK_THRESH;
-
-            if (isBlinking && !wasBlinking) {
-                blinkCount++;
-                // Flash blink dot
-                mpEl.blinkDot.classList.add('blink');
-                setTimeout(() => mpEl.blinkDot.classList.remove('blink'), 150);
-            }
-            wasBlinking = isBlinking;
-
-            const elapsedMin = (Date.now() - blinkStartTime) / 60000;
-            const blinkRate = elapsedMin > 0.05 ? Math.round(blinkCount / elapsedMin) : 0;
-            mpEl.blink.textContent = blinkRate;
-            mpEl.blinkRate.textContent = blinkRate + '/min';
-            // Normal is 15-20, high >25 = nervous, low <8 = staring/stressed
-            const blinkNormal = blinkRate >= 8 && blinkRate <= 25;
-            const blinkColor = blinkNormal ? '#22c55e' : '#f59e0b';
-            mpEl.blinkBar.style.width = Math.min(100, blinkRate / 30 * 100) + '%';
-            mpEl.blinkBar.style.background = blinkColor;
-            mpEl.blinkSub.textContent = blinkRate < 8 ? 'Staring (stressed)' : blinkRate > 25 ? 'Rapid (nervous)' : 'Normal rate';
-
-            // ── 3. HEAD TILT ──
-            const dx = rightEyePt.x - leftEyePt.x;
-            const dy = rightEyePt.y - leftEyePt.y;
-            const tiltDeg = Math.round(Math.atan2(dy, dx) * (180 / Math.PI));
-            const absTilt = Math.abs(tiltDeg);
-            mpEl.tilt.textContent = (tiltDeg > 0 ? '+' : '') + tiltDeg + '°';
-            const tiltColor = absTilt <= 8 ? '#22c55e' : absTilt <= 18 ? '#f59e0b' : '#ef4444';
-            mpEl.tiltBar.style.width = Math.min(100, 50 + tiltDeg * 2) + '%';
-            mpEl.tiltBar.style.background = tiltColor;
-            mpEl.tiltSub.textContent = absTilt <= 5 ? 'Centered' : tiltDeg > 0 ? 'Tilting right' : 'Tilting left';
-
-            // ── 4. SMILE SCORE ──
-            const mouthL = pt(MOUTH_L);
-            const mouthR = pt(MOUTH_R);
-            const mouthWidth = Math.hypot(mouthR.x - mouthL.x, mouthR.y - mouthL.y);
-            // Normalize by face width
-            const smileRatio = mouthWidth / Math.max(0.001, faceW);
-            // Typical smile ratio: 0.45-0.65
-            const smileScore = Math.max(0, Math.min(100, Math.round((smileRatio - 0.38) / 0.28 * 100)));
-            mpEl.smile.textContent = smileScore;
-            const smileColor = smileScore >= 50 ? '#22c55e' : smileScore >= 25 ? '#f59e0b' : '#ef4444';
-            mpEl.smileBar.style.width = smileScore + '%';
-            mpEl.smileBar.style.background = smileColor;
-            mpEl.smileSub.textContent = smileScore >= 60 ? 'Warm & engaging' : smileScore >= 30 ? 'Neutral expression' : 'Try to smile!';
-
-            // ── 5. JAW TENSION ──
-            // Jaw openness = distance between top and bottom lip relative to face height
-            const mouthTop = pt(MOUTH_TOP);
-            const mouthBot = pt(MOUTH_BOT);
-            const lCheekPt = pt(LEFT_JAW);
-            const rCheekPt = pt(RIGHT_JAW);
-            const faceH = Math.hypot(lCheekPt.x - pt(1).x, lCheekPt.y - pt(1).y);
-            const jawOpen = Math.hypot(mouthTop.x - mouthBot.x, mouthTop.y - mouthBot.y) / Math.max(0.001, faceH);
-            // Low jaw openness + narrow face = clenched
-            const jawTension = Math.max(0, Math.min(100, Math.round((0.08 - jawOpen) / 0.08 * 100)));
-            mpEl.jaw.textContent = jawTension;
-            const jawColor = jawTension <= 30 ? '#22c55e' : jawTension <= 60 ? '#f59e0b' : '#ef4444';
-            mpEl.jawBar.style.width = jawTension + '%';
-            mpEl.jawBar.style.background = jawColor;
-            mpEl.jawSub.textContent = jawTension >= 60 ? 'Jaw clenched — relax' : jawTension >= 30 ? 'Slight tension' : 'Relaxed';
-
-            // ── 6. STRESS INDEX ──
-            // Composite: high blink or low blink + high tilt + jaw tension + low eye contact
-            const normalizedBlink = blinkRate < 8 ? 80 : blinkRate > 25 ? (blinkRate - 25) / 5 * 20 : 0;
-            const stressRaw = (normalizedBlink * 0.25 + (100 - avgEye) * 0.35 + jawTension * 0.25 + absTilt * 1.2 * 0.15);
-            const stressScore = Math.max(0, Math.min(100, Math.round(stressRaw)));
-            stressHistory.push(stressScore);
-            if (stressHistory.length > 30) stressHistory.shift();
-            const avgStress = Math.round(stressHistory.reduce((a, b) => a + b, 0) / stressHistory.length);
-            mpEl.stress.textContent = avgStress;
-            const stressColor = avgStress <= 30 ? '#22c55e' : avgStress <= 60 ? '#f59e0b' : '#ef4444';
-            mpEl.stressBar.style.width = avgStress + '%';
-            mpEl.stressBar.style.background = stressColor;
-            mpEl.stressSub.textContent = avgStress >= 60 ? 'High stress detected' : avgStress >= 35 ? 'Moderate stress' : 'Calm';
-
-            // ── 7. COMPOSITE MP SCORE ──
-            const mpScore = Math.round(avgEye * 0.35 + smileScore * 0.2 + (100 - jawTension) * 0.15 + (100 - avgStress) * 0.2 + (absTilt <= 8 ? 100 : Math.max(0, 100 - absTilt * 3)) * 0.1);
-            mpEl.compMp.textContent = mpScore;
-            mpEl.compMp.style.color = mpScore >= 70 ? '#22c55e' : mpScore >= 45 ? '#f59e0b' : '#ef4444';
-
-            // ── 8. REAL-TIME FEEDBACK TIPS ──
-            const tips = [];
-            if (avgEye < 50) tips.push('Look at the camera');
-            if (blinkRate > 25) tips.push('Breathe — reduce blinking');
-            if (blinkRate < 8 && blinkRate > 0) tips.push('Remember to blink naturally');
-            if (jawTension > 60) tips.push('Unclench your jaw');
-            if (absTilt > 15) tips.push('Straighten your head');
-            if (smileScore < 20) tips.push('Soften your expression');
-            mpEl.feedback.textContent = tips.length ? '💡 ' + tips[0] : '✓ Great presence!';
-
-            // Update composite overall (blended with AI if available)
-            updateComposite(mpScore);
-
-            // Draw subtle landmark overlay
-            drawOverlay(ctx, lm, W, H, avgEye, avgStress);
-
-            // Check for MP-triggered interrupt
-            checkMpInterrupt(avgEye, blinkRate, jawTension, avgStress);
-        }
-
-        let lastMpInterrupt = 0;
-        function checkMpInterrupt(eyeContact, blinkRate, jawTension, stressScore) {
-            const now = Date.now();
-            if (now - lastMpInterrupt < 12000) return; // throttle to 12s
-            let msg = '';
-            if (eyeContact < 35) msg = 'Look directly at the camera right now';
-            else if (jawTension > 75) msg = 'Relax your jaw — you look tense';
-            else if (stressScore > 70) msg = 'Take a breath — calm your body';
-            if (msg) {
-                lastMpInterrupt = now;
-                triggerInterrupt(msg + ' [MediaPipe]', []);
-            }
-        }
-
-        function drawOverlay(ctx, lm, W, H, eyeContact, stress) {
-            ctx.save();
-            // Draw minimal eye lines
-            const alpha = 0.35;
-            ctx.strokeStyle = `rgba(0,212,255,${alpha})`;
-            ctx.lineWidth = 1;
-
-            // Left eye outline
-            ctx.beginPath();
-            [L_EYE[0], L_EYE[1], L_EYE[2], L_EYE[3], L_EYE[4], L_EYE[5], L_EYE[0]].forEach((idx, i) => {
-                const p = lm[idx];
-                i === 0 ? ctx.moveTo(p.x * W, p.y * H) : ctx.lineTo(p.x * W, p.y * H);
-            });
-            ctx.stroke();
-
-            // Right eye outline
-            ctx.beginPath();
-            [R_EYE[0], R_EYE[1], R_EYE[2], R_EYE[3], R_EYE[4], R_EYE[5], R_EYE[0]].forEach((idx, i) => {
-                const p = lm[idx];
-                i === 0 ? ctx.moveTo(p.x * W, p.y * H) : ctx.lineTo(p.x * W, p.y * H);
-            });
-            ctx.stroke();
-
-            // Nose bridge dot
-            const nose = lm[1];
-            ctx.fillStyle = `rgba(0,212,255,0.6)`;
-            ctx.beginPath();
-            ctx.arc(nose.x * W, nose.y * H, 2.5, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.restore();
-        }
-
-        let aiScore = null;
-        function updateComposite(mpScore) {
-            if (aiScore !== null) {
-                const blended = Math.round(mpScore * 0.45 + aiScore * 0.55);
-                mpEl.compOverall.textContent = blended;
-                mpEl.compOverall.style.color = blended >= 70 ? '#22c55e' : blended >= 45 ? '#f59e0b' : '#ef4444';
-                mpEl.compFeedback.textContent = blended >= 75 ? 'Excellent presentation presence' : blended >= 55 ? 'Good — focus on eye contact' : 'Keep practicing — you\'re improving';
-            } else {
-                mpEl.compOverall.textContent = mpScore;
-                mpEl.compOverall.style.color = mpScore >= 70 ? '#22c55e' : mpScore >= 45 ? '#f59e0b' : '#ef4444';
-            }
-        }
-
-        // Load MediaPipe Face Mesh from CDN
-        async function loadMediaPipe() {
-            mpEl.status.className = 'loading';
-            mpEl.status.innerHTML = '<span>●</span> MP LOADING…';
-
-            return new Promise((resolve, reject) => {
-                const script1 = document.createElement('script');
-                script1.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js';
-                script1.crossOrigin = 'anonymous';
-                document.head.appendChild(script1);
-
-                const script2 = document.createElement('script');
-                script2.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js';
-                script2.crossOrigin = 'anonymous';
-                document.head.appendChild(script2);
-
-                let loaded = 0;
-                const check = () => {
-                    loaded++;
-                    if (loaded >= 2) {
-                        setTimeout(() => {
-                            if (typeof FaceMesh !== 'undefined') {
-                                initFaceMesh();
-                                resolve();
-                            } else {
-                                mpEl.status.innerHTML = '<span>●</span> MP UNAVAILABLE';
-                                mpEl.status.className = '';
-                                reject(new Error('FaceMesh not defined'));
-                            }
-                        }, 500);
-                    }
-                };
-                script1.onload = check;
-                script2.onload = check;
-                script1.onerror = reject;
-                script2.onerror = reject;
-            });
-        }
-
-        function initFaceMesh() {
-            mpFaceMesh = new FaceMesh({
-                locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-            });
-            mpFaceMesh.setOptions({
-                maxNumFaces: 1,
-                refineLandmarks: true,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5,
-            });
-            mpFaceMesh.onResults(processResults);
-
-            mpEl.status.className = 'active';
-            mpEl.status.innerHTML = '<span>●</span> MP READY';
-            window._appLog('MediaPipe FaceMesh initialized ✅', 'ok');
-            mpActive = true;
-        }
-
-        window.initMpCamera = function () {
-            if (!mpFaceMesh) return;
-            const vid = document.getElementById('videoPreview');
-            mpCamera = new Camera(vid, {
-                onFrame: async () => {
-                    if (mpFaceMesh) await mpFaceMesh.send({ image: vid });
-                },
-                width: 320, height: 240,
-            });
-            mpCamera.start();
-            window._appLog('MediaPipe camera loop started', 'ok');
-        };
-
-        window.stopMpCamera = function () {
-            mpCamera?.stop();
-            mpCamera = null;
-        };
-
-        // Load on page start
-        loadMediaPipe().catch(e => {
-            window._appLog('MediaPipe load failed: ' + e.message, 'warn');
-        });
-
-        window._setAiScore = function (score) {
-            aiScore = score;
-            document.getElementById('compAi').textContent = score;
-            document.getElementById('compAi').style.color = score >= 70 ? '#22c55e' : score >= 45 ? '#f59e0b' : '#ef4444';
-        };
-    </script>
-
-    <!-- ═══════ MAIN APP ═══════ -->
-    <script>
-        let ws = null, inputCtx = null, outputCtx = null, mediaStream = null;
-        let isStreaming = false, isMicHeld = false;
-        let youBuffer = '', sarahBuffer = '', nextPlayTime = 0;
-        let analysisTimer = null, analysisInterval = 5000;
-        let isAnalyzing = false;
-        let pendingAudioChunks = [], isResuming = false;
-        let geminiApiKey = '';
-
-        const els = {
-            apiKey: document.getElementById('apiKey'),
-            connectBtn: document.getElementById('connectBtn'),
-            streamBtn: document.getElementById('streamBtn'),
-            micBtn: document.getElementById('micBtn'),
-            status: document.getElementById('status'),
-            statusDot: document.getElementById('statusDot'),
-            log: document.getElementById('log'),
-            youBubble: document.getElementById('youBubble'),
-            sarahBubble: document.getElementById('sarahBubble'),
-            video: document.getElementById('videoPreview'),
-            metrics: document.getElementById('metricsDisplay'),
-            videoWrap: document.getElementById('videoWrap'),
-            badge: document.getElementById('analysisBadge'),
-            toast: document.getElementById('interruptToast'),
-            toastMsg: document.getElementById('toastMsg'),
-            ring: document.getElementById('analysisRing'),
-            blFeedback: document.getElementById('blFeedback'),
-            intervalSlider: document.getElementById('intervalSlider'),
-            intervalLabel: document.getElementById('intervalLabel'),
-        };
-
-        function log(msg, type = 'info') {
-            const t = new Date().toLocaleTimeString([], { hour12: false });
-            const colors = { ok: '#22c55e', error: '#ef4444', warn: '#f59e0b', tool: '#a855f7', audio: '#0ea5e9', stt: '#06b6d4', tts: '#8b5cf6', db: '#34d399', ptt: '#facc15' };
-            const color = colors[type] || '#3d5570';
-            const line = document.createElement('div');
-            line.style.color = color;
-            line.textContent = `[${t}][${type.toUpperCase().padEnd(5)}] ${msg}`;
-            els.log.prepend(line);
-            while (els.log.children.length > 80) els.log.removeChild(els.log.lastChild);
-        }
-        window._appLog = log;
-
-        els.intervalSlider.oninput = () => {
-            analysisInterval = parseInt(els.intervalSlider.value) * 1000;
-            els.intervalLabel.textContent = els.intervalSlider.value + 's';
-        };
-
-        // ── CONNECT ──
-        els.connectBtn.onclick = () => {
-            geminiApiKey = els.apiKey.value.trim();
-            if (!geminiApiKey) return alert('Paste your Gemini API Key first.');
-            if (ws) { ws.close(); ws = null; }
-            log('Connecting to Gemini Live…');
-
-            const model = 'models/gemini-2.5-flash-native-audio-preview-12-2025';
-            const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${geminiApiKey}`;
-            ws = new WebSocket(url);
-
-            ws.onopen = () => {
-                log('WebSocket OPEN', 'ok');
-                els.status.textContent = 'CONNECTED';
-                els.statusDot.className = 'status-dot connected';
-                els.streamBtn.disabled = false;
-
-                ws.send(JSON.stringify({
-                    setup: {
-                        model,
-                        generation_config: { response_modalities: ['AUDIO'] },
-                        input_audio_transcription: {},
-                        output_audio_transcription: {},
-                        realtime_input_config: { automatic_activity_detection: { disabled: true } },
-                        system_instruction: {
-                            parts: [{ text: `You are Sarah, a Senior Recruiter doing a mock interview using the STAR method. Introduce yourself briefly, then ask one STAR question at a time. Keep responses to 2-3 sentences. CRITICAL: After every candidate response, always call update_interview_metrics with scores 0-100. Never skip this call. When you receive a COACHING INTERRUPT message, acknowledge it briefly (1 sentence) and remind the candidate to apply it.` }]
-                        },
-                        tools: [{
-                            function_declarations: [{
-                                name: 'update_interview_metrics',
-                                description: 'Update STAR evaluation scores after each answer.',
-                                parameters: {
-                                    type: 'OBJECT',
-                                    properties: {
-                                        confidence: { type: 'NUMBER', description: '0-100' },
-                                        star_situation: { type: 'NUMBER', description: '0-100' },
-                                        star_task: { type: 'NUMBER', description: '0-100' },
-                                        star_action: { type: 'NUMBER', description: '0-100' },
-                                        star_result: { type: 'NUMBER', description: '0-100' },
-                                        articulation: { type: 'NUMBER', description: '0-100' },
-                                        feedback: { type: 'STRING', description: 'Max 10 words of encouragement or correction.' },
-                                    },
-                                    required: ['confidence', 'star_situation', 'star_task', 'star_action', 'star_result', 'articulation', 'feedback'],
-                                }
-                            }]
-                        }]
-                    }
-                }));
-            };
-
-            ws.onmessage = ev => handleMessage(ev);
-            ws.onclose = ev => {
-                els.status.textContent = `CLOSED (${ev.code})`;
-                els.statusDot.className = 'status-dot';
-                log(`WS closed code=${ev.code}`, 'warn');
-                isStreaming = false;
-                els.streamBtn.disabled = false;
-                stopAnalysisLoop();
-                window.fbEndSession?.();
-                window.stopMpCamera?.();
-            };
-            ws.onerror = () => log('WebSocket error', 'error');
-        };
-
-        // ── MESSAGE HANDLER ──
-        async function handleMessage(ev) {
-            let text = (ev.data instanceof Blob) ? await ev.data.text() : ev.data;
-            let data;
-            try { data = JSON.parse(text); } catch (e) { log('Bad JSON: ' + text.substring(0, 80), 'error'); return; }
-
-            if (data.setupComplete) { log('Setup ACK — ready!', 'ok'); return; }
-
-            if (data.toolCall) {
-                (data.toolCall.functionCalls || []).forEach(call => {
-                    const a = call.args || {};
-                    log(`✅ Tool: ${call.name} conf=${a.confidence}`, 'tool');
-                    renderMetrics(a);
-                    window.fbSaveMetric?.(a);
-                    ws.send(JSON.stringify({ toolResponse: { functionResponses: [{ id: call.id, name: call.name, response: { result: 'ok' } }] } }));
-                });
-            }
-
-            if (data.inputTranscription?.text) {
-                youBuffer += ' ' + data.inputTranscription.text;
-                els.youBubble.textContent = 'YOU: ' + youBuffer.trim();
-            }
-            if (data.outputTranscription?.text) {
-                sarahBuffer += data.outputTranscription.text;
-                els.sarahBubble.textContent = 'SARAH: ' + sarahBuffer;
-            }
-
-            const sc = data.serverContent;
-            if (!sc) return;
-
-            if (!data.inputTranscription && sc.inputTranscription?.text) {
-                youBuffer += ' ' + sc.inputTranscription.text;
-                els.youBubble.textContent = 'YOU: ' + youBuffer.trim();
-            }
-            if (!data.outputTranscription && sc.outputTranscription?.text) {
-                sarahBuffer += sc.outputTranscription.text;
-                els.sarahBubble.textContent = 'SARAH: ' + sarahBuffer;
-            }
-
-            const parts = sc.modelTurn?.parts || [];
-            parts.forEach(part => {
-                if (part.inlineData?.data) {
-                    const mime = part.inlineData.mimeType || '';
-                    if (mime.startsWith('audio') || mime === '') playAudio(part.inlineData.data);
-                }
-                if (part.functionCall) {
-                    const a = part.functionCall.args || {};
-                    renderMetrics(a);
-                    window.fbSaveMetric?.(a);
-                    ws.send(JSON.stringify({ toolResponse: { functionResponses: [{ id: part.functionCall.id, name: part.functionCall.name, response: { result: 'ok' } }] } }));
-                }
-            });
-
-            if (sc.turnComplete) {
-                log('Turn complete', 'ok');
-                if (youBuffer.trim()) window.fbAddTranscript?.('YOU', youBuffer.trim());
-                if (sarahBuffer.trim()) window.fbAddTranscript?.('SARAH', sarahBuffer.trim());
-                youBuffer = ''; sarahBuffer = '';
-                nextPlayTime = 0; pendingAudioChunks = [];
-            }
-        }
-
-        // ── VIDEO ANALYSIS (Gemini REST) ──
-        const analysisCanvas = document.createElement('canvas');
-        analysisCanvas.width = 320; analysisCanvas.height = 240;
-        const analysisCtx = analysisCanvas.getContext('2d');
-
-        function captureFrame() {
-            if (!els.video.videoWidth) return null;
-            analysisCtx.drawImage(els.video, 0, 0, 320, 240);
-            return analysisCanvas.toDataURL('image/jpeg', 0.55).split(',')[1];
-        }
-
-        async function runVideoAnalysis() {
-            if (isAnalyzing || !isStreaming || !geminiApiKey) return;
-            const frame = captureFrame();
-            if (!frame) { log('Analysis skip: no frame', 'warn'); return; }
-
-            isAnalyzing = true;
-            els.ring.style.display = 'inline-block';
-
-            const prompt = `You are an expert interview coach. Analyze this video frame.
-Return ONLY valid JSON, no markdown. Example:
-{"posture":85,"eye_contact":70,"expression":60,"engagement":75,"nervousness":30,"overall":72,"issues":["looking slightly down"],"interrupt":false,"interrupt_message":""}
-Fields: posture 0-100, eye_contact 0-100, expression 0-100, engagement 0-100, nervousness 0-100, overall 0-100, issues string array, interrupt boolean, interrupt_message string.
-If image unclear: {"posture":50,"eye_contact":50,"expression":50,"engagement":50,"nervousness":50,"overall":50,"issues":[],"interrupt":false,"interrupt_message":""}`;
-
             try {
-                const resp = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
-                    {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-                            contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: frame } }, { text: prompt }] }],
-                            generationConfig: { temperature: 0.1, maxOutputTokens: 400, responseMimeType: 'application/json' }
-                        })
-                    }
-                );
-                if (!resp.ok) { log('Analysis API error ' + resp.status, 'error'); return; }
-                const data = await resp.json();
-                if (!data.candidates?.length) { log('Analysis: no candidates', 'warn'); return; }
-                const raw = data.candidates[0]?.content?.parts?.[0]?.text || '';
-                const clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-                if (!clean) { log('Analysis: empty response', 'warn'); return; }
-                let result;
-                try { result = JSON.parse(clean); } catch (e) { log('Analysis JSON parse fail: ' + clean.substring(0, 80), 'warn'); return; }
-                if (typeof result.posture === 'undefined') { log('Analysis: malformed result', 'warn'); return; }
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                sampleRate = audioContext.sampleRate;
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 1024;
+                sourceNode = audioContext.createMediaStreamSource(stream);
 
-                updateBLScores(result);
+                // Script processor for raw PCM capture
+                scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                sourceNode.connect(analyser);
+                sourceNode.connect(scriptProcessor);
+                scriptProcessor.connect(audioContext.destination);
 
-                // Feed AI score into composite
-                window._setAiScore?.(result.overall);
+                const chunkDuration = parseFloat(document.getElementById('cfgChunkSize').value) || 0.8;
+                const overlapDuration = parseFloat(document.getElementById('cfgOverlap').value) || 0.2;
+                const chunkSamples = Math.floor(chunkDuration * sampleRate);
+                const overlapSamples = Math.floor(overlapDuration * sampleRate);
+                let buffer = new Float32Array(0);
+                let pendingChunk = null;
 
-                if (result.interrupt && result.interrupt_message) {
-                    triggerInterrupt(result.interrupt_message, result.issues || []);
-                } else {
-                    showBadge('✓ Looking good — AI', true);
-                }
-                log(`AI Analysis: posture=${result.posture} eye=${result.eye_contact} overall=${result.overall}`, 'ok');
-            } catch (e) {
-                log('Video analysis error: ' + e.message, 'error');
-            } finally {
-                isAnalyzing = false;
-                els.ring.style.display = 'none';
-            }
-        }
-
-        function updateBLScores(r) {
-            const setScore = (id, barId, val, invert = false) => {
-                const el = document.getElementById(id);
-                const bar = document.getElementById(barId);
-                if (!el) return;
-                el.textContent = val ?? '--';
-                const pct = Math.min(100, Math.max(0, val ?? 0));
-                const score = invert ? (100 - pct) : pct;
-                const color = score >= 70 ? '#22c55e' : score >= 40 ? '#f59e0b' : '#ef4444';
-                el.style.color = color;
-                bar.style.width = pct + '%';
-                bar.style.background = color;
-            };
-            setScore('bl-posture', 'bf-posture', r.posture);
-            setScore('bl-eye', 'bf-eye', r.eye_contact);
-            setScore('bl-expr', 'bf-expr', r.expression);
-            setScore('bl-engage', 'bf-engage', r.engagement);
-            setScore('bl-nerves', 'bf-nerves', r.nervousness, true);
-            setScore('bl-overall', 'bf-overall', r.overall);
-            const issues = r.issues || [];
-            els.blFeedback.textContent = issues.length ? '⚠️ ' + issues.join(' · ') : '';
-        }
-
-        function showBadge(text, isOk = false) {
-            els.badge.textContent = text;
-            els.badge.className = isOk ? 'ok' : '';
-            els.badge.style.display = 'block';
-            setTimeout(() => { els.badge.style.display = 'none'; }, 3000);
-        }
-
-        function triggerInterrupt(message, issues) {
-            els.videoWrap.classList.add('warn-flash');
-            setTimeout(() => els.videoWrap.classList.remove('warn-flash'), 800);
-            showBadge('⚠️ ' + message, false);
-            els.toastMsg.textContent = message;
-            els.toast.classList.add('show');
-            setTimeout(() => els.toast.classList.remove('show'), 4500);
-
-            if (ws && ws.readyState === WebSocket.OPEN && !isMicHeld) {
-                ws.send(JSON.stringify({
-                    clientContent: {
-                        turns: [{ role: 'user', parts: [{ text: `[BODY LANGUAGE COACH ALERT]: ${message}. Observed: ${issues.join(', ') || 'none'}. In one sentence, call this out and tell the candidate to fix it.` }] }],
-                        turnComplete: true
-                    }
-                }));
-                log('🚨 INTERRUPT: ' + message, 'warn');
-            }
-        }
-
-        function startAnalysisLoop() {
-            stopAnalysisLoop();
-            analysisTimer = setTimeout(function tick() {
-                runVideoAnalysis();
-                analysisTimer = setTimeout(tick, analysisInterval);
-            }, 3000);
-        }
-
-        function stopAnalysisLoop() {
-            if (analysisTimer) { clearTimeout(analysisTimer); analysisTimer = null; }
-        }
-
-        // ── PUSH-TO-TALK ──
-        function micDown() {
-            if (!isStreaming) return;
-            isMicHeld = true; youBuffer = '';
-            els.youBubble.textContent = 'YOU: (speaking…)';
-            els.micBtn.classList.add('active');
-            if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ realtimeInput: { activityStart: {} } }));
-        }
-        function micUp() {
-            if (!isMicHeld) return;
-            isMicHeld = false;
-            els.micBtn.classList.remove('active');
-            if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ realtimeInput: { activityEnd: {} } }));
-        }
-
-        els.micBtn.addEventListener('mousedown', micDown);
-        els.micBtn.addEventListener('mouseup', micUp);
-        els.micBtn.addEventListener('mouseleave', micUp);
-        els.micBtn.addEventListener('touchstart', e => { e.preventDefault(); micDown(); });
-        els.micBtn.addEventListener('touchend', e => { e.preventDefault(); micUp(); });
-
-        // ── START CAMERA + MIC ──
-        els.streamBtn.onclick = async () => {
-            if (isStreaming || !ws || ws.readyState !== WebSocket.OPEN) return;
-            try {
-                log('Requesting camera + microphone…');
-                window.fbStartSession?.();
-
-                mediaStream = await navigator.mediaDevices.getUserMedia({
-                    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-                    video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 15 } },
-                });
-                els.video.srcObject = mediaStream;
-                isStreaming = true;
-                els.statusDot.className = 'status-dot streaming';
-                els.status.textContent = 'STREAMING';
-                els.micBtn.style.display = 'block';
-                els.streamBtn.disabled = true;
-                nextPlayTime = 0;
-
-                // Start MediaPipe camera loop
-                els.video.onloadedmetadata = () => {
-                    window.initMpCamera?.();
-                };
-
-                outputCtx = new AudioContext({ sampleRate: 24000 });
-                inputCtx = new AudioContext();
-                const nativeSR = inputCtx.sampleRate;
-                log('Input SR: ' + nativeSR + 'Hz', 'ok');
-
-                const source = inputCtx.createMediaStreamSource(mediaStream);
-                const proc = inputCtx.createScriptProcessor(2048, 1, 1);
-                source.connect(proc);
-                proc.connect(inputCtx.destination);
-
-                const TARGET_SR = 16000;
-                const resampleRatio = TARGET_SR / nativeSR;
-
-                proc.onaudioprocess = e => {
-                    if (!isMicHeld || ws?.readyState !== WebSocket.OPEN) return;
+                scriptProcessor.onaudioprocess = (e) => {
                     const input = e.inputBuffer.getChannelData(0);
-                    const outputLen = Math.round(input.length * resampleRatio);
-                    const resampled = new Float32Array(outputLen);
-                    for (let i = 0; i < outputLen; i++) {
-                        const srcIdx = i / resampleRatio;
-                        const lo = Math.floor(srcIdx);
-                        const hi = Math.min(lo + 1, input.length - 1);
-                        const frac = srcIdx - lo;
-                        resampled[i] = input[lo] * (1 - frac) + input[hi] * frac;
+                    const cleaned = applyNoiseGate(input);
+
+                    // VAD check
+                    const rms = getRMS(cleaned);
+                    const vadThresh = parseFloat(document.getElementById('cfgVadThresh').value) || 0.05;
+                    const isSpeech = rms > vadThresh;
+                    updateVAD(isSpeech, rms);
+
+                    const useVAD = document.getElementById('cfgVad').checked;
+                    if (useVAD && !isSpeech) {
+                        silenceFrames++;
+                        return;
                     }
-                    const pcm16 = new Int16Array(resampled.length);
-                    for (let i = 0; i < resampled.length; i++) {
-                        const s = Math.max(-1, Math.min(1, resampled[i]));
-                        pcm16[i] = Math.round(s * 32767);
+                    silenceFrames = 0;
+
+                    // Accumulate samples
+                    const merged = new Float32Array(buffer.length + cleaned.length);
+                    merged.set(buffer);
+                    merged.set(cleaned, buffer.length);
+                    buffer = merged;
+
+                    // When we have enough for a chunk
+                    if (buffer.length >= chunkSamples) {
+                        const chunk = buffer.slice(0, chunkSamples);
+                        buffer = buffer.slice(chunkSamples - overlapSamples); // keep overlap
+
+                        if (pendingChunk === null) {
+                            pendingChunk = true;
+                            sendChunkToAPI(chunk, sampleRate, chunkIndex++);
+                        } else {
+                            // Queue next chunk
+                            setTimeout(() => sendChunkToAPI(chunk, sampleRate, chunkIndex++), 100);
+                        }
                     }
-                    const bytes = new Uint8Array(pcm16.buffer);
-                    const CHUNK = 32768;
-                    let bin = '';
-                    for (let i = 0; i < bytes.length; i += CHUNK)bin += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + CHUNK, bytes.length)));
-                    ws.send(JSON.stringify({ realtimeInput: { mediaChunks: [{ mimeType: 'audio/pcm;rate=16000', data: btoa(bin) }] } }));
                 };
 
-                // Video frames to Gemini Live
-                const vCanvas = document.createElement('canvas'); vCanvas.width = 320; vCanvas.height = 240;
-                const vCtx = vCanvas.getContext('2d');
-                const sendFrame = () => {
-                    if (!isStreaming || ws?.readyState !== WebSocket.OPEN) return;
-                    vCtx.drawImage(els.video, 0, 0, 320, 240);
-                    const jpeg = vCanvas.toDataURL('image/jpeg', 0.45).split(',')[1];
-                    ws.send(JSON.stringify({ realtimeInput: { mediaChunks: [{ mimeType: 'image/jpeg', data: jpeg }] } }));
-                    setTimeout(sendFrame, 3000);
-                };
-                sendFrame();
+                isRecording = true;
+                recordingStart = Date.now();
+                timerInterval = setInterval(updateTimer, 1000);
 
-                startAnalysisLoop();
-                log('Media ACTIVE — hold mic to speak!', 'ok');
+                document.getElementById('recordBtn').classList.add('recording');
+                document.getElementById('recordStatus').textContent = 'Recording...';
+                document.getElementById('recordStatus').className = 'record-status status-recording';
+                document.getElementById('micBadge').textContent = 'LIVE';
+                document.getElementById('micBadge').className = 'badge badge-red';
+
+                setStep('input', 'active');
+                log('🎙 Microphone recording started', 'success');
+                startWaveform(analyser);
+
             } catch (err) {
-                log('Media error: ' + err.message, 'error');
-                alert('Camera/mic error:\n' + err.message);
+                log('Microphone error: ' + err.message, 'error');
+                console.error(err);
             }
-        };
-
-        // ── STAR METRICS ──
-        function renderMetrics(a) {
-            const bar = val => {
-                const pct = Math.min(100, Math.max(0, val ?? 0));
-                const color = pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
-                return `<div class="mbar"><div class="mfill" style="width:${pct}%;background:${color}"></div></div>`;
-            };
-            const item = (label, val) => `<div class="metric-item"><div class="mi-label">${label}</div><div class="mi-val" style="color:${(val ?? 0) >= 70 ? '#22c55e' : (val ?? 0) >= 40 ? '#f59e0b' : '#ef4444'}">${val ?? '--'}</div>${bar(val)}</div>`;
-            els.metrics.innerHTML =
-                item('CONFIDENCE', a.confidence) + item('SITUATION', a.star_situation) + item('TASK', a.star_task) +
-                item('ACTION', a.star_action) + item('RESULT', a.star_result) + item('ARTICULATION', a.articulation) +
-                (a.feedback ? `<div class="feedback-chip">💬 ${a.feedback}</div>` : '');
         }
 
-        // ── AUDIO PLAYBACK ──
-        async function ensureOutputCtx() {
-            if (!outputCtx || outputCtx.state === 'closed') { outputCtx = new AudioContext({ sampleRate: 24000 }); nextPlayTime = 0; }
-            if (outputCtx.state === 'suspended') {
-                if (!isResuming) {
-                    isResuming = true;
-                    await outputCtx.resume();
-                    isResuming = false;
-                    const queued = pendingAudioChunks.splice(0);
-                    queued.forEach(b64 => scheduleChunk(b64));
+        function stopRecording() {
+            isRecording = false;
+            clearInterval(timerInterval);
+
+            if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor = null; }
+            if (sourceNode) { sourceNode.disconnect(); sourceNode = null; }
+            if (audioContext) { audioContext.close(); audioContext = null; }
+            cancelAnimationFrame(animFrame);
+
+            document.getElementById('recordBtn').classList.remove('recording');
+            document.getElementById('recordStatus').textContent = 'Recording stopped';
+            document.getElementById('recordStatus').className = 'record-status status-idle';
+            document.getElementById('micBadge').textContent = 'DONE';
+            document.getElementById('micBadge').className = 'badge badge-purple';
+
+            clearCanvas();
+            setStep('input', 'done');
+            log('⏹ Recording stopped', 'warn');
+
+            if (rawText.trim()) {
+                document.getElementById('refineBtn').disabled = false;
+                if (document.getElementById('cfgRefine').checked) {
+                    setTimeout(refineTranscript, 600);
                 }
-                return false;
             }
-            return true;
         }
 
-        function scheduleChunk(base64) {
+        // ─── Signal Processing ────────────────────────────────────────────────────────
+        function getRMS(samples) {
+            let sum = 0;
+            for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+            return Math.sqrt(sum / samples.length);
+        }
+
+        function applyNoiseGate(samples) {
+            if (!document.getElementById('cfgNoise').checked) return samples;
+            const copy = new Float32Array(samples.length);
+            const gate = 0.02;
+            for (let i = 0; i < samples.length; i++) {
+                copy[i] = Math.abs(samples[i]) > gate ? samples[i] : 0;
+            }
+            return copy;
+        }
+
+        function updateVAD(isSpeech, rms) {
+            const ind = document.getElementById('vadIndicator');
+            const fill = document.getElementById('noiseFill');
+            ind.textContent = isSpeech ? 'SPEAKING' : 'SILENCE';
+            ind.className = 'vad-indicator' + (isSpeech ? ' speaking' : '');
+            fill.style.width = Math.min(rms * 300, 100) + '%';
+        }
+
+        // ─── Chunk → API ──────────────────────────────────────────────────────────────
+        function float32ToWav(samples, sr) {
+            const buf = new ArrayBuffer(44 + samples.length * 2);
+            const view = new DataView(buf);
+            const write = (off, str) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); };
+            write(0, 'RIFF'); view.setUint32(4, 36 + samples.length * 2, true);
+            write(8, 'WAVE'); write(12, 'fmt ');
+            view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+            view.setUint32(24, sr, true); view.setUint32(28, sr * 2, true);
+            view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+            write(36, 'data'); view.setUint32(40, samples.length * 2, true);
+            for (let i = 0; i < samples.length; i++) {
+                const s = Math.max(-1, Math.min(1, samples[i]));
+                view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+            return new Blob([buf], { type: 'audio/wav' });
+        }
+
+        function addChunkPill(idx, state) {
+            const timeline = document.getElementById('chunkTimeline');
+            if (idx === 0) timeline.innerHTML = '';
+            let pill = document.getElementById('pill-' + idx);
+            if (!pill) {
+                pill = document.createElement('div');
+                pill.className = 'chunk-pill';
+                pill.id = 'pill-' + idx;
+                pill.textContent = `C${idx + 1}`;
+                timeline.appendChild(pill);
+            }
+            pill.className = 'chunk-pill ' + state;
+        }
+
+        async function sendChunkToAPI(samples, sr, idx) {
+            setStep('preprocess', 'active');
+            setStep('vad', 'done');
+            setStep('chunk', 'active');
+            addChunkPill(idx, 'sent');
+            log(`Chunk ${idx + 1} (${(samples.length / sr).toFixed(2)}s) → preprocessing`, 'info');
+
+            const wavBlob = float32ToWav(samples, sr);
+            const b64 = await blobToBase64(wavBlob);
+
+            setStep('chunk', 'done');
+            setStep('api', 'active');
+            document.getElementById('procBadge').textContent = 'SENDING';
+            document.getElementById('procBadge').className = 'badge badge-orange';
+
+            const maxRetries = parseInt(document.getElementById('cfgRetries').value) || 3;
+            const useBackoff = document.getElementById('cfgBackoff').checked;
+            const usePrompt = document.getElementById('cfgPrompt').checked;
+            const prompt = document.getElementById('promptTemplate').value;
+
+            const systemPrompt = usePrompt ? prompt : 'Transcribe this audio accurately.';
+
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                if (attempt > 0) {
+                    document.getElementById('retryChip').style.display = 'inline-flex';
+                    const delay = useBackoff ? Math.pow(2, attempt) * 500 : 500;
+                    log(`Retry ${attempt}/${maxRetries} in ${delay}ms...`, 'warn');
+                    await sleep(delay);
+                }
+                try {
+                    const result = await callClaudeAPI(systemPrompt, b64);
+                    document.getElementById('retryChip').style.display = 'none';
+                    addChunkPill(idx, 'done');
+                    setStep('api', 'done');
+                    setStep('merge', 'active');
+
+                    appendRawText(result, idx);
+                    updateStat('chunkCount', idx + 1);
+                    updateStat('wordCount', rawText.trim().split(/\s+/).filter(Boolean).length);
+
+                    setStep('merge', 'done');
+                    setStep('preprocess', 'done');
+                    document.getElementById('procBadge').textContent = 'ACTIVE';
+                    document.getElementById('procBadge').className = 'badge badge-green';
+                    log(`Chunk ${idx + 1} ✓ transcribed`, 'success');
+                    return;
+                } catch (err) {
+                    log(`Chunk ${idx + 1} error: ${err.message}`, 'error');
+                    if (attempt === maxRetries - 1) {
+                        addChunkPill(idx, 'error');
+                        setStep('api', 'error');
+                        document.getElementById('retryChip').style.display = 'none';
+                    }
+                }
+            }
+        }
+
+        async function callClaudeAPI(systemPrompt, audioB64) {
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'claude-sonnet-4-20250514',
+                    max_tokens: 1000,
+                    system: systemPrompt,
+                    messages: [{
+                        role: 'user',
+                        content: [
+                            {
+                                type: 'document',
+                                source: { type: 'base64', media_type: 'audio/wav', data: audioB64 }
+                            },
+                            { type: 'text', text: 'Please transcribe this audio accurately following your instructions.' }
+                        ]
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.error?.message || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.content.map(c => c.text || '').join('').trim();
+        }
+
+        function appendRawText(text, idx) {
+            rawChunks[idx] = text;
+            // Reconstruct merged text in order
+            rawText = rawChunks.filter(Boolean).join(' ');
+
+            const box = document.getElementById('rawTranscript');
+            box.classList.add('streaming');
+            box.innerHTML = '<span class="chunk-highlight">' + escapeHTML(rawText) + '</span>';
+            setTimeout(() => {
+                const hl = box.querySelector('.chunk-highlight');
+                if (hl) hl.style.background = 'transparent';
+            }, 800);
+
+            document.getElementById('rawBadge').textContent = 'LIVE';
+            document.getElementById('rawBadge').className = 'badge badge-red';
+        }
+
+        // ─── Refinement Pass ──────────────────────────────────────────────────────────
+        async function refineTranscript() {
+            if (!rawText.trim()) return;
+            if (!apiKey) { log('API key required for refinement', 'error'); return; }
+
+            document.getElementById('refineBtn').disabled = true;
+            document.getElementById('refinedBadge').textContent = 'REFINING...';
+            document.getElementById('refinedBadge').className = 'badge badge-orange';
+            setStep('refine', 'active');
+            log('Running refinement pass...', 'info');
+
+            const removeFiller = document.getElementById('cfgFiller').checked;
+
+            const refinePrompt = `You are a professional transcript editor. Clean this raw transcript:
+
+${rawText}
+
+Rules:
+${removeFiller ? '- Remove filler words: um, uh, like, you know, so, basically, right\n' : ''}- Fix grammar and punctuation
+- Correct obvious speech-to-text errors
+- Preserve technical terms and proper nouns
+- Keep the original meaning intact
+- Output ONLY the cleaned transcript, nothing else`;
+
             try {
-                const bin = atob(base64);
-                const u8 = new Uint8Array(bin.length);
-                for (let i = 0; i < bin.length; i++)u8[i] = bin.charCodeAt(i);
-                const i16 = new Int16Array(u8.buffer);
-                const f32 = new Float32Array(i16.length);
-                for (let i = 0; i < i16.length; i++)f32[i] = i16[i] / 32768.0;
-                const buf = outputCtx.createBuffer(1, f32.length, 24000);
-                buf.copyToChannel(f32, 0);
-                const src = outputCtx.createBufferSource();
-                src.buffer = buf; src.connect(outputCtx.destination);
-                const now = outputCtx.currentTime;
-                if (nextPlayTime < now + 0.01) nextPlayTime = now + 0.05;
-                src.start(nextPlayTime);
-                nextPlayTime += buf.duration;
-            } catch (e) { log('Playback error: ' + e.message, 'error'); }
+                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: 'claude-sonnet-4-20250514',
+                        max_tokens: 1000,
+                        messages: [{ role: 'user', content: refinePrompt }]
+                    })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                const refined = data.content.map(c => c.text || '').join('').trim();
+
+                document.getElementById('refinedTranscript').innerHTML = escapeHTML(refined);
+                document.getElementById('refinedBadge').textContent = 'DONE';
+                document.getElementById('refinedBadge').className = 'badge badge-green';
+                document.getElementById('refineBtn').disabled = false;
+                setStep('refine', 'done');
+                setStep('done', 'done');
+                log('Refinement complete ✓', 'success');
+
+                const words = refined.split(/\s+/).filter(Boolean).length;
+                const raw = rawText.split(/\s+/).filter(Boolean).length;
+                updateStat('confScore', Math.round((words / Math.max(raw, 1)) * 100) + '%');
+
+            } catch (err) {
+                log('Refinement error: ' + err.message, 'error');
+                document.getElementById('refinedBadge').textContent = 'ERROR';
+                document.getElementById('refinedBadge').className = 'badge badge-red';
+                document.getElementById('refineBtn').disabled = false;
+                setStep('refine', 'error');
+            }
         }
 
-        async function playAudio(base64) {
-            const ready = await ensureOutputCtx();
-            if (!ready) { pendingAudioChunks.push(base64); return; }
-            scheduleChunk(base64);
+        // ─── File Upload Flow ─────────────────────────────────────────────────────────
+        function handleDragOver(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('drag-over'); }
+        function handleDragLeave(e) { document.getElementById('uploadZone').classList.remove('drag-over'); }
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('uploadZone').classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file) processUploadedFile(file);
+        }
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) processUploadedFile(file);
         }
 
-        window.addEventListener('beforeunload', () => {
-            stopAnalysisLoop();
-            mediaStream?.getTracks().forEach(t => t.stop());
-            ws?.close();
-            inputCtx?.close();
-            outputCtx?.close();
-            window.stopMpCamera?.();
-        });
+        function processUploadedFile(file) {
+            uploadedFile = file;
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileMeta').textContent = `${(file.size / 1024).toFixed(1)} KB · ${file.type || 'audio'}`;
+            document.getElementById('fileInfo').style.display = 'block';
+            document.getElementById('transcribeFileBtn').disabled = false;
+            log(`File loaded: ${file.name}`, 'success');
+        }
+
+        async function transcribeFile() {
+            if (!uploadedFile) return;
+            if (!apiKey) { log('API key required', 'error'); alert('Enter API key first.'); return; }
+
+            document.getElementById('transcribeFileBtn').disabled = true;
+            document.getElementById('fileTranscriptArea').style.display = 'block';
+            document.getElementById('fileTranscript').innerHTML = '<span style="color:var(--warn);font-family:\'Space Mono\',monospace;font-size:12px;">Processing audio file...</span>';
+
+            resetSteps();
+            setStep('input', 'active');
+            log('Decoding audio file...', 'info');
+
+            try {
+                // Decode audio via AudioContext
+                const arrayBuffer = await uploadedFile.arrayBuffer();
+                const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                const decoded = await ctx.decodeAudioData(arrayBuffer);
+                await ctx.close();
+
+                // Resample to mono 16kHz
+                const offCtx = new OfflineAudioContext(1, decoded.duration * 16000, 16000);
+                const src = offCtx.createBufferSource();
+                src.buffer = decoded;
+                src.connect(offCtx.destination);
+                src.start();
+                const rendered = await offCtx.startRendering();
+                const samples = rendered.getChannelData(0);
+
+                setStep('input', 'done');
+                setStep('preprocess', 'done');
+                log(`Decoded: ${decoded.duration.toFixed(1)}s → resampled to 16kHz mono`, 'success');
+
+                // Chunk and process
+                const chunkDuration = parseFloat(document.getElementById('cfgChunkSize').value) || 0.8;
+                const overlapDuration = parseFloat(document.getElementById('cfgOverlap').value) || 0.2;
+                const chunkSamples = Math.floor(chunkDuration * 16000);
+                const overlapSamples = Math.floor(overlapDuration * 16000);
+                const chunks = [];
+                let start = 0;
+
+                while (start < samples.length) {
+                    chunks.push(samples.slice(start, start + chunkSamples));
+                    start += chunkSamples - overlapSamples;
+                }
+
+                log(`Processing ${chunks.length} chunks...`, 'info');
+                setStep('chunk', 'active');
+
+                const results = [];
+                const usePrompt = document.getElementById('cfgPrompt').checked;
+                const prompt = document.getElementById('promptTemplate').value;
+                const sysPrompt = usePrompt ? prompt : 'Transcribe this audio.';
+                const maxRetries = parseInt(document.getElementById('cfgRetries').value) || 3;
+                const useBackoff = document.getElementById('cfgBackoff').checked;
+
+                for (let i = 0; i < chunks.length; i++) {
+                    addChunkPill(i, 'sent');
+                    const wavBlob = float32ToWav(chunks[i], 16000);
+                    const b64 = await blobToBase64(wavBlob);
+
+                    let success = false;
+                    for (let attempt = 0; attempt < maxRetries; attempt++) {
+                        if (attempt > 0) {
+                            const delay = useBackoff ? Math.pow(2, attempt) * 500 : 500;
+                            await sleep(delay);
+                        }
+                        try {
+                            const text = await callClaudeAPI(sysPrompt, b64);
+                            results.push(text);
+                            addChunkPill(i, 'done');
+                            log(`Chunk ${i + 1}/${chunks.length} ✓`, 'success');
+                            success = true;
+                            break;
+                        } catch (err) {
+                            if (attempt === maxRetries - 1) {
+                                addChunkPill(i, 'error');
+                                log(`Chunk ${i + 1} failed: ${err.message}`, 'error');
+                            }
+                        }
+                    }
+                }
+
+                setStep('chunk', 'done');
+                setStep('api', 'done');
+                setStep('merge', 'active');
+
+                const merged = results.join(' ');
+                document.getElementById('fileTranscript').textContent = merged;
+                setStep('merge', 'done');
+                log('Merge complete', 'success');
+
+                // Auto-refine
+                if (document.getElementById('cfgRefine').checked) {
+                    setStep('refine', 'active');
+                    log('Running refinement pass...', 'info');
+
+                    const removeFiller = document.getElementById('cfgFiller').checked;
+                    const refinePrompt = `Clean this transcript. ${removeFiller ? 'Remove fillers (um, uh, like).' : ''} Fix grammar. Keep technical terms. Output only the transcript.\n\n${merged}`;
+
+                    try {
+                        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                model: 'claude-sonnet-4-20250514',
+                                max_tokens: 1000,
+                                messages: [{ role: 'user', content: refinePrompt }]
+                            })
+                        });
+                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                        const d = await resp.json();
+                        const refined = d.content.map(c => c.text || '').join('').trim();
+                        const refinedEl = document.getElementById('fileRefined');
+                        refinedEl.style.display = 'block';
+                        refinedEl.innerHTML = '<div style="font-size:10px;color:var(--accent2);letter-spacing:1px;text-transform:uppercase;font-family:\'Space Mono\',monospace;margin-bottom:8px;">✨ REFINED OUTPUT</div>' + escapeHTML(refined);
+                        setStep('refine', 'done');
+                        setStep('done', 'done');
+                        log('File refinement complete ✓', 'success');
+                    } catch (e) {
+                        log('Refinement error: ' + e.message, 'error');
+                    }
+                } else {
+                    setStep('done', 'done');
+                }
+
+                document.getElementById('transcribeFileBtn').disabled = false;
+
+            } catch (err) {
+                log('File error: ' + err.message, 'error');
+                document.getElementById('fileTranscript').innerHTML = `<span style="color:var(--red);">Error: ${escapeHTML(err.message)}</span>`;
+                document.getElementById('transcribeFileBtn').disabled = false;
+            }
+        }
+
+        // ─── Waveform ─────────────────────────────────────────────────────────────────
+        function startWaveform(analyser) {
+            const canvas = document.getElementById('waveCanvas');
+            const ctx = canvas.getContext('2d');
+            const buf = new Uint8Array(analyser.frequencyBinCount);
+
+            function draw() {
+                animFrame = requestAnimationFrame(draw);
+                analyser.getByteTimeDomainData(buf);
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+                ctx.fillStyle = '#1a1a24';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#00ff9d';
+                ctx.shadowColor = '#00ff9d';
+                ctx.shadowBlur = 6;
+                ctx.beginPath();
+                const sliceW = canvas.width / buf.length;
+                let x = 0;
+                for (let i = 0; i < buf.length; i++) {
+                    const v = buf[i] / 128;
+                    const y = v * canvas.height / 2;
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    x += sliceW;
+                }
+                ctx.stroke();
+            }
+            draw();
+        }
+
+        function clearCanvas() {
+            const canvas = document.getElementById('waveCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            ctx.fillStyle = '#1a1a24';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#2a2a3a';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+        }
+
+        // ─── Timer ───────────────────────────────────────────────────────────────────
+        function updateTimer() {
+            const elapsed = Math.floor((Date.now() - recordingStart) / 1000);
+            const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const s = String(elapsed % 60).padStart(2, '0');
+            document.getElementById('recTimer').textContent = `${m}:${s}`;
+        }
+
+        // ─── Download ─────────────────────────────────────────────────────────────────
+        function downloadTranscript() {
+            const raw = document.getElementById('rawTranscript').innerText;
+            const refined = document.getElementById('refinedTranscript').innerText;
+            const content = `AudioLens Transcript Export\n${'='.repeat(40)}\n\nRAW TRANSCRIPT:\n${raw}\n\nREFINED TRANSCRIPT:\n${refined}\n`;
+            download('transcript.txt', content);
+        }
+
+        function downloadFileTranscript() {
+            const raw = document.getElementById('fileTranscript').innerText;
+            const refined = document.getElementById('fileRefined').innerText;
+            const content = `AudioLens File Transcript\n${'='.repeat(40)}\n\nRAW:\n${raw}\n\nREFINED:\n${refined}\n`;
+            download('file_transcript.txt', content);
+        }
+
+        function download(filename, text) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+            a.download = filename;
+            a.click();
+        }
+
+        // ─── Utils ────────────────────────────────────────────────────────────────────
+        function blobToBase64(blob) {
+            return new Promise((res, rej) => {
+                const r = new FileReader();
+                r.onload = () => res(r.result.split(',')[1]);
+                r.onerror = rej;
+                r.readAsDataURL(blob);
+            });
+        }
+
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+        function escapeHTML(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // Init canvas
+        window.addEventListener('load', () => { clearCanvas(); });
+        window.addEventListener('resize', () => { if (!isRecording) clearCanvas(); });
     </script>
 </body>
 

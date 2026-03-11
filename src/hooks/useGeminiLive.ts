@@ -38,6 +38,10 @@ export function useGeminiLive({
         lastFeedback: ""
     });
 
+    // Audio analysis state (from test.html AudioLens pipeline)
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [audioLevel, setAudioLevel] = useState(0);
+
     // WebSocket
     const wsRef = useRef<WebSocket | null>(null);
 
@@ -52,6 +56,8 @@ export function useGeminiLive({
     const streamRef = useRef<MediaStream | null>(null);
     const videoTimerRef = useRef<number | null>(null);
     const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
+    // Analyser node exposed to UI for waveform canvas drawing
+    const analyserRef = useRef<AnalyserNode | null>(null);
 
     // Mic hold ref (needed inside audio processor closure)
     const isMicHeldRef = useRef(false);
@@ -65,6 +71,40 @@ export function useGeminiLive({
         for (let i = 0; i < bytes.length; i += C)
             binary += String.fromCharCode.apply(null, bytes.subarray(i, i + C) as unknown as number[]);
         return btoa(binary);
+    };
+
+    /* ── Audio Signal Processing (ported from test.html AudioLens engine) ── */
+
+    /** Root Mean Square — drives VAD and level meter */
+    const getRMS = (samples: Float32Array): number => {
+        let sum = 0;
+        for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+        return Math.sqrt(sum / samples.length);
+    };
+
+    /** Noise gate — zeros samples below threshold to suppress background hiss */
+    const applyNoiseGate = (samples: Float32Array, threshold = 0.015): Float32Array => {
+        const result = new Float32Array(samples.length);
+        for (let i = 0; i < samples.length; i++) {
+            result[i] = Math.abs(samples[i]) > threshold ? samples[i] : 0;
+        }
+        return result;
+    };
+
+    /** Linear interpolation resample — converts native browser SR → 16 kHz for Gemini */
+    const resampleLinear = (samples: Float32Array, srcRate: number, targetRate: number): Float32Array => {
+        if (Math.abs(srcRate - targetRate) < 10) return samples; // already at target
+        const ratio = targetRate / srcRate;
+        const outLen = Math.round(samples.length * ratio);
+        const out = new Float32Array(outLen);
+        for (let i = 0; i < outLen; i++) {
+            const srcIdx = i / ratio;
+            const lo = Math.floor(srcIdx);
+            const hi = Math.min(lo + 1, samples.length - 1);
+            const frac = srcIdx - lo;
+            out[i] = samples[lo] * (1 - frac) + samples[hi] * frac;
+        }
+        return out;
     };
 
     /* ─────────────────────── audio OUTPUT ─────────────────────── */
@@ -354,12 +394,14 @@ export function useGeminiLive({
         try {
             console.log("Requesting camera + microphone…");
 
+            // ── getUserMedia: do NOT constrain sampleRate — browsers silently fail or
+            //    return corrupt buffers. Capture at native rate, resample manually. ──
             const media = await navigator.mediaDevices.getUserMedia({
                 audio: {
-                    sampleRate: 16000,
                     channelCount: 1,
                     echoCancellation: true,
-                    noiseSuppression: true
+                    noiseSuppression: true,
+                    autoGainControl: true,
                 },
                 video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 10 } }
             });
@@ -368,32 +410,55 @@ export function useGeminiLive({
             setLocalStream(media);
             setIsStreaming(true);
 
-            // Create output AudioContext NOW (inside user-gesture chain) to satisfy autoplay policy
+            // Output AudioContext at 24kHz — created inside user-gesture chain for autoplay
             outputCtxRef.current = new AudioContext({ sampleRate: 24000 });
             nextPlayTimeRef.current = 0;
             console.log("Output AudioContext 24kHz ready");
 
-            // Separate input context at 16 kHz — only for mic capture
-            inputCtxRef.current = new AudioContext({ sampleRate: 16000 });
+            // Input AudioContext at NATIVE browser rate — we resample to 16kHz ourselves
+            inputCtxRef.current = new AudioContext();
+            const nativeSR = inputCtxRef.current.sampleRate;
+            console.log(`Input AudioContext native: ${nativeSR}Hz (will resample → 16kHz)`);
+
             const source = inputCtxRef.current.createMediaStreamSource(media);
-            const proc = inputCtxRef.current.createScriptProcessor(4096, 1, 1);
+
+            // ── AnalyserNode: feeds waveform canvas in the UI ──
+            const analyser = inputCtxRef.current.createAnalyser();
+            analyser.fftSize = 1024;
+            analyserRef.current = analyser;
+            source.connect(analyser);
+
+            // ScriptProcessor — 2048 buffer for lower latency than 4096
+            const proc = inputCtxRef.current.createScriptProcessor(2048, 1, 1);
             source.connect(proc);
             proc.connect(inputCtxRef.current.destination);
 
             proc.onaudioprocess = (e) => {
-                // Only stream audio when mic is held (PTT)
+                const raw = e.inputBuffer.getChannelData(0);
+
+                // 1. Noise gate — suppresses background hiss
+                const gated = applyNoiseGate(raw);
+
+                // 2. VAD + level meter (always active, even when PTT not held)
+                const rms = getRMS(gated);
+                setIsSpeaking(rms > 0.02);
+                setAudioLevel(Math.min(rms * 300, 100));
+
+                // 3. Only send to Gemini when mic is held (PTT)
                 if (!isMicHeldRef.current || wsRef.current?.readyState !== WebSocket.OPEN) return;
 
-                const float = e.inputBuffer.getChannelData(0);
-                const pcm16 = new Int16Array(float.length);
-                for (let i = 0; i < float.length; i++) {
-                    const s = Math.max(-1, Math.min(1, float[i]));
-                    pcm16[i] = s < 0 ? s * 32768 : s * 32767;
+                // 4. Resample native SR → 16kHz via linear interpolation
+                const resampled = resampleLinear(gated, nativeSR, 16000);
+
+                // 5. Float32 → Int16 PCM
+                const pcm16 = new Int16Array(resampled.length);
+                for (let i = 0; i < resampled.length; i++) {
+                    const s = Math.max(-1, Math.min(1, resampled[i]));
+                    pcm16[i] = Math.round(s * 32767);
                 }
 
+                // 6. Base64 encode and send — camelCase required by BidiGenerateContent WS
                 const b64 = encodeBase64(new Uint8Array(pcm16.buffer));
-
-                // ✅ camelCase — required by the raw BidiGenerateContent WS protocol
                 wsRef.current!.send(JSON.stringify({
                     realtimeInput: {
                         mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: b64 }]
@@ -462,7 +527,10 @@ export function useGeminiLive({
         outputCtxRef.current = null;
 
         isMicHeldRef.current = false;
+        analyserRef.current = null;
         setIsMicHeld(false);
+        setIsSpeaking(false);
+        setAudioLevel(0);
         setLocalStream(null);
         setIsStreaming(false);
         setIsConnected(false);
@@ -478,6 +546,10 @@ export function useGeminiLive({
         isConnected,
         isStreaming,
         isMicHeld,
+        // Audio analysis (from test.html AudioLens pipeline)
+        isSpeaking,
+        audioLevel,
+        analyserRef,
         youTranscript,
         sarahTranscript,
         metrics,

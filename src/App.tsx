@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, Video, Brain, Sparkles, Trophy, Target, ChevronRight, Settings, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
-import { useGeminiLive, type InterviewMetrics } from './hooks/useGeminiLive';
+import { useGeminiLive } from './hooks/useGeminiLive';
 
 function App() {
   const [isStarted, setIsStarted] = useState(false);
@@ -11,6 +11,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(!import.meta.env.VITE_GEMINI_API_KEY);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const waveCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const systemInstruction =
     "You are Sarah, a Senior Recruiter doing a mock interview using the STAR method. " +
@@ -22,6 +23,9 @@ function App() {
     isConnected,
     isStreaming,
     isMicHeld,
+    isSpeaking,
+    audioLevel,
+    analyserRef,
     youTranscript,
     sarahTranscript,
     metrics,
@@ -53,6 +57,63 @@ function App() {
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
+
+  /* ── Waveform canvas animation (from test.html AudioLens engine) ── */
+  useEffect(() => {
+    const canvas = waveCanvasRef.current;
+    if (!canvas) return;
+
+    const analyser = analyserRef.current;
+
+    // Draw a flat idle line when not streaming
+    if (!analyser || !isStreaming) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        canvas.width = canvas.offsetWidth || 280;
+        canvas.height = canvas.offsetHeight || 56;
+        ctx.fillStyle = 'rgba(10,10,15,0.95)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#2d2d3a';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height / 2);
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
+      }
+      return;
+    }
+
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    let animId: number;
+
+    const draw = () => {
+      animId = requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(buf);
+      canvas.width = canvas.offsetWidth || 280;
+      canvas.height = canvas.offsetHeight || 56;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = 'rgba(10,10,15,0.95)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Green when speaking, violet when silent — same as test.html
+      const color = isMicHeld ? '#22c55e' : '#7c3aed';
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      const sliceW = canvas.width / buf.length;
+      let x = 0;
+      for (let i = 0; i < buf.length; i++) {
+        const v = buf[i] / 128;
+        const y = (v * canvas.height) / 2;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        x += sliceW;
+      }
+      ctx.stroke();
+    };
+    draw();
+    return () => cancelAnimationFrame(animId);
+  }, [isStreaming, isMicHeld, analyserRef]);
 
   const handleEndSession = () => {
     disconnect();
@@ -412,6 +473,43 @@ function App() {
                     </div>
                   </div>
 
+                  {/* ── Waveform + VAD Panel (from test.html AudioLens pipeline) ── */}
+                  <AnimatePresence>
+                    {isStreaming && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="glass rounded-2xl p-3 border-white/10 overflow-hidden"
+                      >
+                        {/* Header row: AUDIO INPUT label + VAD badge */}
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[9px] font-black tracking-[0.2em] uppercase text-muted-foreground">AUDIO INPUT</span>
+                          <span className={cn(
+                            "text-[9px] font-black tracking-widest px-2 py-0.5 rounded border transition-all duration-200",
+                            isSpeaking
+                              ? "bg-green-500/20 text-green-400 border-green-500/30 shadow-[0_0_8px_rgba(34,197,94,0.3)]"
+                              : "bg-white/5 text-muted-foreground border-white/10"
+                          )}>
+                            {isSpeaking ? '● SPEAKING' : '○ SILENCE'}
+                          </span>
+                        </div>
+                        {/* Waveform canvas */}
+                        <div className="h-14 rounded-xl overflow-hidden border border-white/5 bg-black/60 mb-2">
+                          <canvas ref={waveCanvasRef} className="w-full h-full" />
+                        </div>
+                        {/* Noise level bar */}
+                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                          <motion.div
+                            animate={{ width: `${audioLevel}%` }}
+                            transition={{ duration: 0.08, ease: 'linear' }}
+                            className="h-full rounded-full bg-gradient-to-r from-green-400 to-emerald-500"
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   {/* ── Push-to-Talk Button ── */}
                   {isStreaming && (
                     <motion.button
@@ -509,6 +607,28 @@ function App() {
 
                     {/* Status + End Session */}
                     <div className="mt-auto pt-8 border-t border-white/5 space-y-4">
+                      {/* Pipeline status — mirrors test.html pipeline bar */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {[
+                          { label: 'WS', active: isConnected },
+                          { label: 'CAM', active: isStreaming },
+                          { label: 'MIC', active: isStreaming },
+                          { label: 'VAD', active: isSpeaking },
+                          { label: 'GEMINI', active: isConnected && isStreaming },
+                        ].map((step, i) => (
+                          <div key={step.label} className="flex items-center gap-1">
+                            <div className={cn(
+                              "text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded border transition-all",
+                              step.active
+                                ? "bg-green-500/20 text-green-400 border-green-500/30"
+                                : "bg-white/5 text-muted-foreground/40 border-white/5"
+                            )}>
+                              {step.label}
+                            </div>
+                            {i < 4 && <span className="text-muted-foreground/30 text-[8px]">→</span>}
+                          </div>
+                        ))}
+                      </div>
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
                         <div className={cn(
                           "w-2 h-2 rounded-full",
