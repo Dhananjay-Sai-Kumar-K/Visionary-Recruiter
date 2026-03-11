@@ -502,14 +502,13 @@ export function useGeminiLive({
                     },
                     input_audio_transcription: {},
                     output_audio_transcription: {},
-                    realtime_input_config: {
-                        automatic_activity_detection: { disabled: true }
-                    },
                     system_instruction: {
                         parts: [{
-                            text: systemInstruction ||
-                                "You are Sarah, a Senior Recruiter doing a mock interview using the STAR method. Introduce yourself briefly, then ask one STAR question at a time. Keep responses to 2-3 sentences. CRITICAL: After every candidate response, always call update_interview_metrics with scores 0-100 for each dimension. Never skip this call."
+                            text: (systemInstruction || "You are Sarah, a Senior Recruiter doing a mock interview using the STAR method. Introduce yourself briefly, then ask one STAR question at a time. Keep responses to 2-3 sentences. CRITICAL: After every candidate response, always call update_interview_metrics with scores 0-100 for each dimension. Never skip this call.") + "\n\nCRITICAL SYSTEM INSTRUCTION: All audio processing and conversation MUST be in English. Answer in English. Transcribe in English. Do not output foreign languages."
                         }]
+                    },
+                    realtime_input_config: {
+                        automatic_activity_detection: { disabled: true }
                     },
                     tools: [{
                         function_declarations: [{
