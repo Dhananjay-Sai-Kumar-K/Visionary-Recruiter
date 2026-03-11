@@ -1,10 +1,22 @@
 import { useRef, useState, useCallback } from "react";
 
-interface GeminiLiveConfig {
+/* ─────────────────────── Config Interface ─────────────────────── */
+
+export interface GeminiLiveConfig {
     apiKey: string;
     model?: string;
     systemInstruction?: string;
+    /** VAD RMS threshold — audio below this is treated as silence (default: 0.02) */
+    vadThreshold?: number;
+    /** Noise gate threshold — samples below this are zeroed (default: 0.015) */
+    noiseGateThreshold?: number;
+    /** Max automatic reconnect attempts before giving up (default: 3) */
+    maxReconnectAttempts?: number;
+    /** Strip common filler words from transcript during refinement (default: false) */
+    enableFillerRemoval?: boolean;
 }
+
+/* ─────────────────────── Shared Types ─────────────────────── */
 
 export interface InterviewMetrics {
     confidence: number;
@@ -19,17 +31,38 @@ export interface InterviewMetrics {
     transcript?: string;
 }
 
+/** Pipeline step mirrors test.html's visual chunk tracker */
+export type PipelineStep =
+    | "idle"
+    | "connecting"
+    | "active"
+    | "processing"
+    | "done";
+
+/* ─────────────────────── FILLER WORDS ─────────────────────── */
+
+const FILLER_PATTERN =
+    /\b(um+|uh+|like|you know|basically|honestly|literally|right\?|i mean|sort of|kind of|you see|actually|so yeah|yeah so)\b/gi;
+
+/* ─────────────────────── HOOK ─────────────────────── */
+
 export function useGeminiLive({
     apiKey,
-    systemInstruction
+    systemInstruction,
+    vadThreshold = 0.02,
+    noiseGateThreshold = 0.015,
+    maxReconnectAttempts = 3,
+    enableFillerRemoval = false,
 }: GeminiLiveConfig) {
 
+    /* ── UI State ── */
     const [isConnected, setIsConnected] = useState(false);
     const [isStreaming, setIsStreaming] = useState(false);
     const [isMicHeld, setIsMicHeld] = useState(false);
     const [youTranscript, setYouTranscript] = useState("");
     const [sarahTranscript, setSarahTranscript] = useState("");
     const [stream, setLocalStream] = useState<MediaStream | null>(null);
+    const [pipelineStep, setPipelineStep] = useState<PipelineStep>("idle");
 
     const [metrics, setMetrics] = useState<InterviewMetrics>({
         confidence: 70,
@@ -42,7 +75,11 @@ export function useGeminiLive({
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [audioLevel, setAudioLevel] = useState(0);
 
-    // WebSocket
+    // Transcript quality metrics
+    const [rawWordCount, setRawWordCount] = useState(0);
+    const [refinedWordCount, setRefinedWordCount] = useState(0);
+
+    /* ── Refs ── */
     const wsRef = useRef<WebSocket | null>(null);
 
     // Audio: separate contexts for input (16 kHz) and output (24 kHz)
@@ -56,13 +93,28 @@ export function useGeminiLive({
     const streamRef = useRef<MediaStream | null>(null);
     const videoTimerRef = useRef<number | null>(null);
     const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
-    // Analyser node exposed to UI for waveform canvas drawing
+    /** Analyser node exposed to UI for waveform canvas drawing */
     const analyserRef = useRef<AnalyserNode | null>(null);
 
-    // Mic hold ref (needed inside audio processor closure)
+    // PTT hold (needed inside audio processor closure)
     const isMicHeldRef = useRef(false);
 
-    /* ─────────────────────── helpers ─────────────────────── */
+    // Reconnect / retry
+    const reconnectAttemptsRef = useRef(0);
+    const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const intentionalDisconnectRef = useRef(false);
+
+    // Silence gating counter (mirrors test.html SILENCE_THRESHOLD logic)
+    const silenceFramesRef = useRef(0);
+    const SILENCE_THRESHOLD = 15; // frames of continuous silence before suppressing send
+
+    // Snapshot of config values used inside closures (avoids stale captures)
+    const vadThresholdRef = useRef(vadThreshold);
+    vadThresholdRef.current = vadThreshold;
+    const noiseGateThresholdRef = useRef(noiseGateThreshold);
+    noiseGateThresholdRef.current = noiseGateThreshold;
+
+    /* ─────────────────────── Helpers ─────────────────────── */
 
     /** Chunked base64 encode — avoids call-stack overflow on large PCM buffers */
     const encodeBase64 = (bytes: Uint8Array): string => {
@@ -72,6 +124,55 @@ export function useGeminiLive({
             binary += String.fromCharCode.apply(null, bytes.subarray(i, i + C) as unknown as number[]);
         return btoa(binary);
     };
+
+    /** Promise-based sleep for retry backoff */
+    const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+    /** Convert Float32 audio samples to a valid RIFF/WAV Blob (for file export / fallback chunking) */
+    const float32ToWav = (samples: Float32Array, sampleRate = 16000): Blob => {
+        const pcm = new Int16Array(samples.length);
+        for (let i = 0; i < samples.length; i++) {
+            const s = Math.max(-1, Math.min(1, samples[i]));
+            pcm[i] = Math.round(s * 32767);
+        }
+        const wavBuffer = new ArrayBuffer(44 + pcm.byteLength);
+        const view = new DataView(wavBuffer);
+
+        const writeStr = (offset: number, str: string) => {
+            for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+        };
+        const numChannels = 1;
+        const byteRate = sampleRate * numChannels * 2;
+
+        writeStr(0, "RIFF");
+        view.setUint32(4, 36 + pcm.byteLength, true);
+        writeStr(8, "WAVE");
+        writeStr(12, "fmt ");
+        view.setUint32(16, 16, true);            // PCM sub-chunk size
+        view.setUint16(20, 1, true);             // PCM format
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, byteRate, true);
+        view.setUint16(32, numChannels * 2, true); // block align
+        view.setUint16(34, 16, true);            // bits per sample
+        writeStr(36, "data");
+        view.setUint32(40, pcm.byteLength, true);
+
+        const pcmBytes = new Uint8Array(pcm.buffer);
+        const wavBytes = new Uint8Array(wavBuffer);
+        wavBytes.set(pcmBytes, 44);
+
+        return new Blob([wavBuffer], { type: "audio/wav" });
+    };
+
+    /** Blob → base64 data URL (async; useful for WAV chunk upload) */
+    const blobToBase64 = (blob: Blob): Promise<string> =>
+        new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onload = () => res((reader.result as string).split(",")[1]);
+            reader.onerror = rej;
+            reader.readAsDataURL(blob);
+        });
 
     /* ── Audio Signal Processing (ported from test.html AudioLens engine) ── */
 
@@ -83,7 +184,7 @@ export function useGeminiLive({
     };
 
     /** Noise gate — zeros samples below threshold to suppress background hiss */
-    const applyNoiseGate = (samples: Float32Array, threshold = 0.015): Float32Array => {
+    const applyNoiseGate = (samples: Float32Array, threshold: number): Float32Array => {
         const result = new Float32Array(samples.length);
         for (let i = 0; i < samples.length; i++) {
             result[i] = Math.abs(samples[i]) > threshold ? samples[i] : 0;
@@ -93,7 +194,7 @@ export function useGeminiLive({
 
     /** Linear interpolation resample — converts native browser SR → 16 kHz for Gemini */
     const resampleLinear = (samples: Float32Array, srcRate: number, targetRate: number): Float32Array => {
-        if (Math.abs(srcRate - targetRate) < 10) return samples; // already at target
+        if (Math.abs(srcRate - targetRate) < 10) return samples;
         const ratio = targetRate / srcRate;
         const outLen = Math.round(samples.length * ratio);
         const out = new Float32Array(outLen);
@@ -107,7 +208,7 @@ export function useGeminiLive({
         return out;
     };
 
-    /* ─────────────────────── audio OUTPUT ─────────────────────── */
+    /* ─────────────────────── Audio OUTPUT ─────────────────────── */
 
     const ensureOutputCtx = useCallback(async (): Promise<boolean> => {
         if (!outputCtxRef.current || outputCtxRef.current.state === "closed") {
@@ -119,11 +220,10 @@ export function useGeminiLive({
                 isResumingRef.current = true;
                 await outputCtxRef.current.resume();
                 isResumingRef.current = false;
-                // Flush queued chunks
                 const queued = pendingChunksRef.current.splice(0);
                 queued.forEach(b64 => scheduleChunk(b64));
             }
-            return false; // still resuming
+            return false;
         }
         return true;
     }, []);
@@ -162,7 +262,66 @@ export function useGeminiLive({
         scheduleChunk(base64);
     }, [ensureOutputCtx, scheduleChunk]);
 
-    /* ─────────────────────── message handler ─────────────────────── */
+    /* ─────────────────────── Transcript Refinement ─────────────────────── */
+
+    /**
+     * Post-session refinement pass — strips filler words and returns a cleaned string.
+     * If the Gemini WS is still open, no extra API call is made; it's purely client-side.
+     * For a full server-side pass, this can be extended to call a REST endpoint.
+     */
+    const refineTranscript = useCallback(async (rawText: string): Promise<string> => {
+        if (!rawText.trim()) return rawText;
+        setPipelineStep("processing");
+
+        let refined = rawText;
+
+        // Client-side filler removal (if enabled)
+        if (enableFillerRemoval) {
+            refined = refined.replace(FILLER_PATTERN, "").replace(/\s{2,}/g, " ").trim();
+        }
+
+        // Capitalise first character and ensure ending punctuation
+        if (refined.length > 0) {
+            refined = refined.charAt(0).toUpperCase() + refined.slice(1);
+            if (!/[.!?]$/.test(refined)) refined += ".";
+        }
+
+        const rawWc = rawText.trim().split(/\s+/).length;
+        const refinedWc = refined.trim().split(/\s+/).length;
+        setRawWordCount(rawWc);
+        setRefinedWordCount(refinedWc);
+
+        setPipelineStep("done");
+        return refined;
+    }, [enableFillerRemoval]);
+
+    /* ─────────────────────── Export Utility ─────────────────────── */
+
+    /**
+     * Formats both speaker transcripts into a plain-text export string.
+     * Call exportTranscript() at session end; create a download link from the result.
+     */
+    const exportTranscript = useCallback((): string => {
+        const lines: string[] = [
+            "=== Visionary Recruiter — Interview Transcript ===",
+            `Exported: ${new Date().toLocaleString()}`,
+            "",
+            "--- YOU ---",
+            youTranscript || "(no transcript recorded)",
+            "",
+            "--- SARAH (AI Interviewer) ---",
+            sarahTranscript || "(no transcript recorded)",
+            "",
+            `Word count (you): ${rawWordCount || youTranscript.trim().split(/\s+/).length}`,
+        ];
+        if (refinedWordCount) {
+            const quality = Math.round((refinedWordCount / rawWordCount) * 100);
+            lines.push(`Quality score (post-refinement): ${quality}%`);
+        }
+        return lines.join("\n");
+    }, [youTranscript, sarahTranscript, rawWordCount, refinedWordCount]);
+
+    /* ─────────────────────── Message Handler ─────────────────────── */
 
     const handleMessage = useCallback(async (ev: MessageEvent) => {
         let text: string;
@@ -176,9 +335,13 @@ export function useGeminiLive({
         try { data = JSON.parse(text); }
         catch { console.warn("Bad JSON from WS:", text.substring(0, 120)); return; }
 
-        if (data.setupComplete) { console.log("Gemini Setup ACK — ready!"); return; }
+        if (data.setupComplete) {
+            console.log("Gemini Setup ACK — ready!");
+            setPipelineStep("active");
+            return;
+        }
 
-        /* ── Tool calls ── (top-level "toolCall" in camelCase protocol) */
+        /* ── Tool calls (top-level "toolCall" in camelCase protocol) */
         const toolCall = data.toolCall as { functionCalls?: { id: string; name: string; args: Record<string, unknown> }[] } | undefined;
         if (toolCall?.functionCalls) {
             for (const call of toolCall.functionCalls) {
@@ -195,7 +358,6 @@ export function useGeminiLive({
                     });
                     console.log(`Tool call: conf=${a.confidence} S=${a.star_situation} feedback="${a.feedback}"`);
                 }
-                // Send tool response back — camelCase is required by the raw WS protocol
                 if (wsRef.current?.readyState === WebSocket.OPEN) {
                     wsRef.current.send(JSON.stringify({
                         toolResponse: {
@@ -206,19 +368,19 @@ export function useGeminiLive({
             }
         }
 
-        /* ── Input transcription (YOU) — top-level field ── */
+        /* ── Input transcription (YOU) — top-level field */
         const inputTx = data.inputTranscription as { text?: string } | undefined;
         if (inputTx?.text) {
             setYouTranscript(prev => (prev + " " + inputTx.text!).trim());
         }
 
-        /* ── Output transcription (SARAH) — top-level field ── */
+        /* ── Output transcription (SARAH) — top-level field */
         const outputTx = data.outputTranscription as { text?: string } | undefined;
         if (outputTx?.text) {
             setSarahTranscript(prev => prev + outputTx.text!);
         }
 
-        /* ── serverContent — audio chunks + fallback transcription ── */
+        /* ── serverContent — audio chunks + fallback transcription */
         const sc = data.serverContent as {
             modelTurn?: { parts?: { inlineData?: { mimeType?: string; data: string }; functionCall?: { id: string; name: string; args: Record<string, unknown> } }[] };
             inputTranscription?: { text?: string };
@@ -238,14 +400,12 @@ export function useGeminiLive({
 
         const parts = sc.modelTurn?.parts ?? [];
         for (const part of parts) {
-            // Audio output
             if (part.inlineData?.data) {
                 const mime = part.inlineData.mimeType ?? "";
                 if (mime.startsWith("audio") || mime === "") {
                     await playAudio(part.inlineData.data);
                 }
             }
-            // Fallback: tool call inside parts (some versions send it here)
             if (part.functionCall) {
                 const fc = part.functionCall;
                 if (fc.name === "update_interview_metrics") {
@@ -270,7 +430,6 @@ export function useGeminiLive({
             }
         }
 
-        // turnComplete — clear live transcript buffers
         if (sc.turnComplete) {
             console.log("Turn complete");
             setYouTranscript("");
@@ -279,6 +438,32 @@ export function useGeminiLive({
             pendingChunksRef.current = [];
         }
     }, [playAudio]);
+
+    /* ─────────────────────── Reconnect / Retry ─────────────────────── */
+
+    /**
+     * Schedules an exponential-backoff reconnect attempt.
+     * Attempt 0 → 500 ms, 1 → 1 s, 2 → 2 s, 3 → 4 s, …
+     * Stops after maxReconnectAttempts.
+     */
+    const scheduleReconnect = useCallback(() => {
+        if (intentionalDisconnectRef.current) return;
+        if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+            console.warn(`[WS] Max reconnect attempts (${maxReconnectAttempts}) reached. Giving up.`);
+            setPipelineStep("done");
+            return;
+        }
+
+        const attempt = reconnectAttemptsRef.current;
+        const delayMs = Math.pow(2, attempt) * 500;
+        reconnectAttemptsRef.current += 1;
+        console.log(`[WS] Reconnect attempt ${attempt + 1}/${maxReconnectAttempts} in ${delayMs}ms…`);
+
+        reconnectTimerRef.current = setTimeout(() => {
+            reconnectTimerRef.current = null;
+            connect();
+        }, delayMs);
+    }, [maxReconnectAttempts]); // connect added below via ref pattern to avoid circular dep
 
     /* ─────────────────────── CONNECT ─────────────────────── */
 
@@ -292,6 +477,8 @@ export function useGeminiLive({
         const key = apiKey.trim();
         if (!key) { console.error("Gemini API key missing"); return; }
 
+        intentionalDisconnectRef.current = false;
+        setPipelineStep("connecting");
         console.log("Connecting to Gemini Live (v1beta)…");
 
         const url =
@@ -304,19 +491,17 @@ export function useGeminiLive({
 
         ws.onopen = () => {
             console.log("Gemini WebSocket OPEN");
+            reconnectAttemptsRef.current = 0; // reset backoff counter on success
             setIsConnected(true);
 
-            // ✅ Model name that actually works; camelCase setup payload
             ws.send(JSON.stringify({
                 setup: {
                     model: "models/gemini-2.5-flash-native-audio-preview-12-2025",
                     generation_config: {
                         response_modalities: ["AUDIO"]
                     },
-                    // Enable transcriptions for both speaker & AI
                     input_audio_transcription: {},
                     output_audio_transcription: {},
-                    // Disable auto-VAD so we control turns via activityStart / activityEnd
                     realtime_input_config: {
                         automatic_activity_detection: { disabled: true }
                     },
@@ -356,18 +541,30 @@ export function useGeminiLive({
             setIsConnected(false);
             setIsStreaming(false);
             console.log(`[WS Close] code=${ev.code} reason="${ev.reason}"`);
-            if (ev.code === 1008) console.error("Gemini rejected request — check model name / API key.");
+
+            if (ev.code === 1008) {
+                console.error("Gemini rejected request — check model name / API key.");
+                setPipelineStep("done");
+                return; // Don't retry auth failures
+            }
+
+            if (!intentionalDisconnectRef.current) {
+                scheduleReconnect();
+            } else {
+                setPipelineStep("done");
+            }
         };
 
         ws.onerror = (err) => console.error("Gemini WebSocket error", err);
 
-    }, [apiKey, systemInstruction, handleMessage]);
+    }, [apiKey, systemInstruction, handleMessage, scheduleReconnect]);
 
     /* ─────────────────────── MIC HOLD (Push-to-Talk) ─────────────────────── */
 
     const micDown = useCallback(() => {
         if (!isStreaming) return;
         isMicHeldRef.current = true;
+        silenceFramesRef.current = 0;
         setIsMicHeld(true);
         setYouTranscript("");
         console.log("Mic OPEN — sending activityStart");
@@ -379,6 +576,7 @@ export function useGeminiLive({
     const micUp = useCallback(() => {
         if (!isMicHeldRef.current) return;
         isMicHeldRef.current = false;
+        silenceFramesRef.current = 0;
         setIsMicHeld(false);
         console.log("Mic CLOSED — sending activityEnd");
         if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -394,8 +592,6 @@ export function useGeminiLive({
         try {
             console.log("Requesting camera + microphone…");
 
-            // ── getUserMedia: do NOT constrain sampleRate — browsers silently fail or
-            //    return corrupt buffers. Capture at native rate, resample manually. ──
             const media = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     channelCount: 1,
@@ -422,7 +618,7 @@ export function useGeminiLive({
 
             const source = inputCtxRef.current.createMediaStreamSource(media);
 
-            // ── AnalyserNode: feeds waveform canvas in the UI ──
+            // AnalyserNode: feeds waveform canvas in the UI (pre-gating = true input amplitude)
             const analyser = inputCtxRef.current.createAnalyser();
             analyser.fftSize = 1024;
             analyserRef.current = analyser;
@@ -436,28 +632,41 @@ export function useGeminiLive({
             proc.onaudioprocess = (e) => {
                 const raw = e.inputBuffer.getChannelData(0);
 
-                // 1. Noise gate — suppresses background hiss
-                const gated = applyNoiseGate(raw);
+                // 1. Noise gate — suppresses background hiss (threshold from config ref)
+                const gated = applyNoiseGate(raw, noiseGateThresholdRef.current);
 
                 // 2. VAD + level meter (always active, even when PTT not held)
                 const rms = getRMS(gated);
-                setIsSpeaking(rms > 0.02);
+                const speaking = rms > vadThresholdRef.current;
+                setIsSpeaking(speaking);
                 setAudioLevel(Math.min(rms * 300, 100));
 
                 // 3. Only send to Gemini when mic is held (PTT)
                 if (!isMicHeldRef.current || wsRef.current?.readyState !== WebSocket.OPEN) return;
 
-                // 4. Resample native SR → 16kHz via linear interpolation
+                // 4. VAD silence suppression: mirror test.html's silenceFrames counter.
+                //    If the user is silent for SILENCE_THRESHOLD consecutive frames, skip
+                //    sending — saves bandwidth and avoids flooding Gemini with empty noise.
+                if (!speaking) {
+                    silenceFramesRef.current++;
+                    if (silenceFramesRef.current > SILENCE_THRESHOLD) {
+                        return; // suppress this frame
+                    }
+                } else {
+                    silenceFramesRef.current = 0; // voice detected — reset counter
+                }
+
+                // 5. Resample native SR → 16kHz via linear interpolation
                 const resampled = resampleLinear(gated, nativeSR, 16000);
 
-                // 5. Float32 → Int16 PCM
+                // 6. Float32 → Int16 PCM
                 const pcm16 = new Int16Array(resampled.length);
                 for (let i = 0; i < resampled.length; i++) {
                     const s = Math.max(-1, Math.min(1, resampled[i]));
                     pcm16[i] = Math.round(s * 32767);
                 }
 
-                // 6. Base64 encode and send — camelCase required by BidiGenerateContent WS
+                // 7. Base64 encode and send — camelCase required by BidiGenerateContent WS
                 const b64 = encodeBase64(new Uint8Array(pcm16.buffer));
                 wsRef.current!.send(JSON.stringify({
                     realtimeInput: {
@@ -471,13 +680,12 @@ export function useGeminiLive({
                 videoElement.srcObject = media;
             }
 
-            // ── Video frame capture every 2.5 s ──
+            // Video frame capture every 2.5 s
             const canvas = document.createElement("canvas");
             canvas.width = 320;
             canvas.height = 240;
             const ctx2d = canvas.getContext("2d")!;
 
-            // Use a hidden video element to draw frames from (avoids CORS issues with refs)
             const hiddenVid = document.createElement("video");
             hiddenVid.srcObject = media;
             hiddenVid.muted = true;
@@ -509,6 +717,15 @@ export function useGeminiLive({
     /* ─────────────────────── DISCONNECT ─────────────────────── */
 
     const disconnect = useCallback(() => {
+        intentionalDisconnectRef.current = true;
+
+        // Cancel any pending reconnect timer
+        if (reconnectTimerRef.current) {
+            clearTimeout(reconnectTimerRef.current);
+            reconnectTimerRef.current = null;
+        }
+        reconnectAttemptsRef.current = 0;
+
         if (videoTimerRef.current) { clearTimeout(videoTimerRef.current); videoTimerRef.current = null; }
 
         hiddenVideoRef.current?.pause();
@@ -527,6 +744,7 @@ export function useGeminiLive({
         outputCtxRef.current = null;
 
         isMicHeldRef.current = false;
+        silenceFramesRef.current = 0;
         analyserRef.current = null;
         setIsMicHeld(false);
         setIsSpeaking(false);
@@ -536,28 +754,80 @@ export function useGeminiLive({
         setIsConnected(false);
         setYouTranscript("");
         setSarahTranscript("");
+        setPipelineStep("idle");
         nextPlayTimeRef.current = 0;
         pendingChunksRef.current = [];
     }, []);
 
-    /* ─────────────────────── public API ─────────────────────── */
+    /* ─────────────────────── Send Text Message (Prompt Injection) ─────────────────────── */
+
+    const sendTextMessage = useCallback((text: string) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+            console.warn("Cannot send text message, websocket is not open.");
+            return;
+        }
+        
+        console.log("Sending text message via WebSocket:", text);
+        wsRef.current.send(JSON.stringify({
+            clientContent: {
+                turns: [{
+                    role: "user",
+                    parts: [{ text }]
+                }],
+                turnComplete: true
+            }
+        }));
+    }, []);
+
+    /* ─────────────────────── Derived values ─────────────────────── */
+
+    const wordCount = youTranscript.trim() ? youTranscript.trim().split(/\s+/).length : 0;
+    const qualityScore =
+        rawWordCount > 0 && refinedWordCount > 0
+            ? Math.round((refinedWordCount / rawWordCount) * 100)
+            : null;
+
+    /* ─────────────────────── Public API ─────────────────────── */
 
     return {
+        // Connection / session state
         isConnected,
         isStreaming,
         isMicHeld,
-        // Audio analysis (from test.html AudioLens pipeline)
+        pipelineStep,
+
+        // Audio analysis
         isSpeaking,
         audioLevel,
         analyserRef,
+
+        // Transcripts
         youTranscript,
         sarahTranscript,
+
+        // Quality metrics
+        wordCount,
+        qualityScore,
+
+        // Interview metrics (STAR + confidence)
         metrics,
+
+        // Media stream (for <video> srcObject)
         stream,
+
+        // Actions
         connect,
         startStreaming,
         micDown,
         micUp,
-        disconnect
+        disconnect,
+        sendTextMessage,
+
+        // Utilities
+        refineTranscript,
+        exportTranscript,
+        float32ToWav,
+        blobToBase64,
+        sleep,
     };
 }

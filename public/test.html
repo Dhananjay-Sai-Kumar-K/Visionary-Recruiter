@@ -934,6 +934,7 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab('live', this)">🎙 Live Mic</button>
             <button class="tab" onclick="switchTab('file', this)">📁 Upload File</button>
+            <button class="tab" onclick="switchTab('setup', this)">🎯 Interview Setup</button>
             <button class="tab" onclick="switchTab('settings', this)">⚙ Settings</button>
         </div>
 
@@ -962,7 +963,8 @@
                                 <div style="font-size:11px; color:var(--muted); margin-top:4px;" id="recTimer">00:00
                                 </div>
                             </div>
-                            <div style="margin-left:auto;">
+                            <div style="margin-left:auto; display:flex; gap:8px;">
+                                <button class="btn btn-ghost" id="wrapUpBtn" onclick="triggerWrapUp()" disabled>Wrap Up</button>
                                 <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
                             </div>
                         </div>
@@ -978,6 +980,10 @@
                             <div class="stat-box">
                                 <div class="stat-val" id="confScore">—</div>
                                 <div class="stat-label">Quality</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-val" id="bodyScore" style="color:var(--accent);">—</div>
+                                <div class="stat-label">Body Lang</div>
                             </div>
                         </div>
                     </div>
@@ -1090,6 +1096,78 @@
                             <button class="btn btn-ghost" onclick="copyText('fileRefined')">Copy Refined</button>
                             <button class="btn btn-ghost" onclick="downloadFileTranscript()">⬇ Export</button>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETUP TAB (Interview Persona & Context) -->
+        <div id="tab-setup" class="tab-content">
+            <div class="main-grid">
+                <!-- Resume Panel -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">📄 Candidate Resume</span>
+                        <span class="badge badge-purple">CONTEXT</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="upload-zone" id="resumeDropZone" onclick="document.getElementById('resumeFileInput').click()"
+                            ondragover="handleResumeDragOver(event)" ondrop="handleResumeDrop(event)"
+                            ondragleave="handleResumeDragLeave(event)" style="padding:16px;">
+                            <div style="font-size:24px;">📝</div>
+                            <div style="font-size:12px; font-weight:700; margin-top:4px;">Drop .txt file or click</div>
+                        </div>
+                        <input type="file" id="resumeFileInput" accept=".txt" onchange="handleResumeFileSelect(event)" style="display:none;" />
+                        
+                        <textarea id="resumeText" oninput="updateGeminiPrompt()" placeholder="Paste your resume content here...
+
+Experience:
+- Frontend Engineer at Acme Corp (2021-2024)
+- React, TypeScript, Tailwind" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Space Mono',monospace;font-size:11px;padding:12px;line-height:1.6;resize:vertical;min-height:160px;outline:none;" spellcheck="false"></textarea>
+                    </div>
+                </div>
+
+                <!-- Interview Track Panel -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="panel-title">🎭 Interview Track</span>
+                        <span class="badge badge-green">PERSONA</span>
+                    </div>
+                    <div class="panel-body">
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;" id="trackCards">
+                            <div class="track-card active" onclick="selectTrack('hr')" data-track="hr" style="background:var(--surface2); border:1px solid var(--accent); border-radius:8px; padding:12px; cursor:pointer; transition:0.2s;">
+                                <div style="font-size:16px; margin-bottom:4px;">🤝</div>
+                                <div style="font-size:12px; font-weight:700; color:var(--text);">HR Screen</div>
+                                <div style="font-size:10px; color:var(--muted); margin-top:4px;">Culture fit, background, salary</div>
+                            </div>
+                            <div class="track-card" onclick="selectTrack('star')" data-track="star" style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px; cursor:pointer; transition:0.2s;">
+                                <div style="font-size:16px; margin-bottom:4px;">🏆</div>
+                                <div style="font-size:12px; font-weight:700; color:var(--text);">Behavioral (STAR)</div>
+                                <div style="font-size:10px; color:var(--muted); margin-top:4px;">Action/Result focus, leadership</div>
+                            </div>
+                            <div class="track-card" onclick="selectTrack('tech')" data-track="tech" style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px; cursor:pointer; transition:0.2s;">
+                                <div style="font-size:16px; margin-bottom:4px;">💻</div>
+                                <div style="font-size:12px; font-weight:700; color:var(--text);">Technical Dive</div>
+                                <div style="font-size:10px; color:var(--muted); margin-top:4px;">System design, deep hard skills</div>
+                            </div>
+                            <div class="track-card" onclick="selectTrack('stress')" data-track="stress" style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px; cursor:pointer; transition:0.2s;">
+                                <div style="font-size:16px; margin-bottom:4px;">🔥</div>
+                                <div style="font-size:12px; font-weight:700; color:var(--text);">Stress Test</div>
+                                <div style="font-size:10px; color:var(--muted); margin-top:4px;">Rapid fire, high pressure, intense</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generated Prompt Output -->
+                <div class="panel" style="grid-column:1/-1;">
+                    <div class="panel-header">
+                        <span class="panel-title">🤖 Generated Gemini Live Instruction</span>
+                        <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;" onclick="copyText('geminiInstructor')">Copy for App.tsx</button>
+                    </div>
+                    <div class="panel-body">
+                        <div class="section-label">Copy this to the systemInstruction prop in your React App</div>
+                        <textarea id="geminiInstructor" readonly style="width:100%;background:rgba(0,255,157,0.05);border:1px solid var(--accent);border-radius:8px;color:var(--text);font-family:'Space Mono',monospace;font-size:12px;padding:14px;line-height:1.7;resize:vertical;min-height:140px;outline:none;cursor:text;" spellcheck="false"></textarea>
                     </div>
                 </div>
             </div>
@@ -1310,7 +1388,9 @@ Rules:
             updateStat('chunkCount', '0');
             updateStat('wordCount', '0');
             updateStat('confScore', '—');
+            updateStat('bodyScore', '—');
             document.getElementById('refineBtn').disabled = true;
+            document.getElementById('wrapUpBtn').disabled = true;
             document.getElementById('rawBadge').textContent = 'EMPTY';
             document.getElementById('refinedBadge').textContent = 'WAITING';
             resetSteps();
@@ -1401,6 +1481,18 @@ Rules:
                 document.getElementById('recordStatus').className = 'record-status status-recording';
                 document.getElementById('micBadge').textContent = 'LIVE';
                 document.getElementById('micBadge').className = 'badge badge-red';
+                document.getElementById('wrapUpBtn').disabled = false;
+
+                // Mock body language score that changes over time for demo
+                if(window.bodyInterval) clearInterval(window.bodyInterval);
+                window.bodyInterval = setInterval(() => {
+                    const score = Math.floor(Math.random() * 20) + 80;
+                    const el = document.getElementById('bodyScore');
+                    if(el) {
+                        el.textContent = score + '/100';
+                        el.style.color = score > 85 ? 'var(--green)' : 'var(--orange)';
+                    }
+                }, 3000);
 
                 setStep('input', 'active');
                 log('🎙 Microphone recording started', 'success');
@@ -1426,6 +1518,8 @@ Rules:
             document.getElementById('recordStatus').className = 'record-status status-idle';
             document.getElementById('micBadge').textContent = 'DONE';
             document.getElementById('micBadge').className = 'badge badge-purple';
+            document.getElementById('wrapUpBtn').disabled = true;
+            if(window.bodyInterval) clearInterval(window.bodyInterval);
 
             clearCanvas();
             setStep('input', 'done');
@@ -1437,6 +1531,13 @@ Rules:
                     setTimeout(refineTranscript, 600);
                 }
             }
+        }
+
+        function triggerWrapUp() {
+            log('Triggered Reverse Q&A (Wrap Up)', 'warn');
+            const box = document.getElementById('rawTranscript');
+            box.innerHTML += '<br><br><span style="color:var(--accent2); font-style:italic; font-size:12px;">[SYSTEM INSTRUCTION INJECTED: "Wrap up the interview. Say: \'That concludes my questions. Do you have any questions for me about the company or the role?\'"]</span><br><br>';
+            document.getElementById('wrapUpBtn').disabled = true;
         }
 
         // ─── Signal Processing ────────────────────────────────────────────────────────
@@ -1817,6 +1918,79 @@ ${removeFiller ? '- Remove filler words: um, uh, like, you know, so, basically, 
             }
         }
 
+        // ─── Interview Setup Context Generation ───────────────────────────────────────
+        let currentTrack = 'hr';
+
+        function selectTrack(track) {
+            currentTrack = track;
+            document.querySelectorAll('.track-card').forEach(c => {
+                c.style.borderColor = 'var(--border)';
+            });
+            document.querySelector(`.track-card[data-track="${track}"]`).style.borderColor = 'var(--accent)';
+            updateGeminiPrompt();
+        }
+
+        function handleResumeDragOver(e) { e.preventDefault(); document.getElementById('resumeDropZone').classList.add('drag-over'); }
+        function handleResumeDragLeave(e) { document.getElementById('resumeDropZone').classList.remove('drag-over'); }
+        function handleResumeDrop(e) {
+            e.preventDefault();
+            document.getElementById('resumeDropZone').classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file && (file.type === 'text/plain' || file.name.endsWith('.txt'))) readResumeFile(file);
+        }
+        function handleResumeFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) readResumeFile(file);
+        }
+
+        function readResumeFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('resumeText').value = e.target.result;
+                log(`Resume text loaded from ${file.name}`, 'success');
+                updateGeminiPrompt();
+            };
+            reader.readAsText(file);
+        }
+
+        function updateGeminiPrompt() {
+            const resumeText = document.getElementById('resumeText').value.trim();
+            let persona = '';
+            
+            switch(currentTrack) {
+                case 'hr':
+                    persona = 'You are Sarah, an HR Recruiter for a first-round phone screen. Keep things friendly, assess culture fit, and ask broad background questions. Try to understand their motivations.';
+                    break;
+                case 'star':
+                    persona = 'You are Sarah, a Senior Recruiter doing a behavioral mock interview using the STAR method. Keep responses to 2-3 sentences. Ask one STAR question at a time and dig into their actions and results.';
+                    break;
+                case 'tech':
+                    persona = 'You are Sarah, an Engineering Manager. You are strictly evaluating hard technical skills, system design knowledge, and problem-solving depth. Ask complex technical follow-ups.';
+                    break;
+                case 'stress':
+                    persona = 'You are Sarah, an intense and impatient interviewer. Ask rapid-fire questions, challenge their answers, and test their composure under high pressure.';
+                    break;
+            }
+
+            let prompt = persona + '\n\n';
+            prompt += 'CRITICAL: After every candidate response, always call update_interview_metrics with scores 0-100 for each dimension. Along with STAR confidence, analyze the video frames to grade their eye contact and posture from 0-100 (body_language_score). Never skip this call.\n\n';
+
+            if (currentTrack === 'tech') {
+                prompt += 'VISION EVALUATION: If you ask a technical question, ask the candidate to draw their solution (architecture diagram, code, logic) on a piece of paper and hold it up to the camera. Look at the camera feed and evaluate their drawing.\n\n';
+            }
+
+            if (resumeText) {
+                prompt += '--- CANDIDATE RESUME CONTEXT ---\n';
+                prompt += resumeText + '\n';
+                prompt += '---------------------------------\n\n';
+                prompt += 'INSTRUCTION: I have provided the candidate\'s resume above. Your FIRST question MUST be specific to a past role or project listed on this resume. Continually reference their actual experience in your questions whenever possible.';
+            } else {
+                prompt += 'INSTRUCTION: Wait for the candidate to introduce themselves, then begin the interview based on your persona.';
+            }
+
+            document.getElementById('geminiInstructor').value = prompt;
+        }
+
         // ─── Waveform ─────────────────────────────────────────────────────────────────
         function startWaveform(analyser) {
             const canvas = document.getElementById('waveCanvas');
@@ -1908,8 +2082,11 @@ ${removeFiller ? '- Remove filler words: um, uh, like, you know, so, basically, 
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
 
-        // Init canvas
-        window.addEventListener('load', () => { clearCanvas(); });
+        // Init canvas and setup
+        window.addEventListener('load', () => { 
+            clearCanvas(); 
+            updateGeminiPrompt(); 
+        });
         window.addEventListener('resize', () => { if (!isRecording) clearCanvas(); });
     </script>
 </body>
