@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Mic, Video, Brain, Sparkles, Trophy, Target, ChevronRight, Settings, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, Video, Brain, Sparkles, Trophy, Target, ChevronRight, Settings, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 import { useGeminiLive, type InterviewMetrics } from './hooks/useGeminiLive';
@@ -12,25 +12,47 @@ function App() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const { isConnected, isRecording, transcript, metrics, connect, disconnect, startStreaming } = useGeminiLive({
-    apiKey,
-    systemInstruction: "You are Sarah, a highly experienced and slightly tough Senior Recruiter at a top tech company like Google or Amazon. You are conducting a high-stakes mock interview. Your goal is to test the candidate's technical depth and behavioral skills (STAR method). Interrupt the candidate if they are rambling. Ask deep 'Why' questions. Be professional but firm. Notice their non-verbal cues (as images will be sent to you) and comment on them if they seem nervous or unprofessional. Start by introducing yourself and asking the first question."
-  });
+  const systemInstruction =
+    "You are Sarah, a Senior Recruiter doing a mock interview using the STAR method. " +
+    "Introduce yourself briefly, then ask one STAR question at a time. Keep responses to 2-3 sentences. " +
+    "Notice non-verbal cues from the video feed and comment if the candidate looks nervous or unprofessional. " +
+    "CRITICAL: After every candidate response, always call update_interview_metrics with scores 0-100 for each dimension. Never skip this call.";
 
+  const {
+    isConnected,
+    isStreaming,
+    isMicHeld,
+    youTranscript,
+    sarahTranscript,
+    metrics,
+    stream,
+    connect,
+    disconnect,
+    startStreaming,
+    micDown,
+    micUp,
+  } = useGeminiLive({ apiKey, systemInstruction });
+
+  /* ── Connect as soon as the session starts ── */
   useEffect(() => {
     if (isStarted && !isConnected) {
       connect();
     }
-    if (isConnected && !isRecording) {
-      startStreaming().then(() => {
-        if (videoRef.current && navigator.mediaDevices) {
-          navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-            videoRef.current!.srcObject = stream;
-          });
-        }
-      });
+  }, [isStarted, isConnected, connect]);
+
+  /* ── Start camera + mic as soon as the WS is connected ── */
+  useEffect(() => {
+    if (isConnected && !isStreaming) {
+      startStreaming(videoRef.current);
     }
-  }, [isStarted, isConnected, isRecording, connect, startStreaming]);
+  }, [isConnected, isStreaming, startStreaming]);
+
+  /* ── Keep video element in sync with media stream ── */
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
 
   const handleEndSession = () => {
     disconnect();
@@ -39,14 +61,15 @@ function App() {
   };
 
   const readinessScore = Math.round(
-    (metrics.confidence * 0.3) +
-    (metrics.starStructure * 0.5) +
+    (metrics.confidence * 0.2) +
+    ((metrics.starProgress.situation + metrics.starProgress.task + metrics.starProgress.action + metrics.starProgress.result) / 4 * 0.6) +
     (metrics.articulation * 0.2)
   );
 
   return (
     <div className="min-h-screen bg-mesh text-foreground overflow-hidden">
-      {/* Navigation */}
+
+      {/* ── Navigation ── */}
       <nav className="fixed top-0 w-full z-50 px-6 py-4 flex items-center justify-between glass border-b border-white/5">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
@@ -70,7 +93,7 @@ function App() {
         </div>
       </nav>
 
-      {/* Settings Modal */}
+      {/* ── Settings Modal ── */}
       <AnimatePresence>
         {showSettings && (
           <motion.div
@@ -130,6 +153,8 @@ function App() {
 
       <main className="pt-24 pb-12 px-6">
         <AnimatePresence mode="wait">
+
+          {/* ══════════════════ SUMMARY ══════════════════ */}
           {showSummary ? (
             <motion.div
               key="summary"
@@ -150,7 +175,9 @@ function App() {
                   <div className="text-[10px] font-black tracking-widest uppercase opacity-50">Readiness Score</div>
                 </div>
                 <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
-                  <div className="text-4xl font-black text-violet-400 mb-2">{metrics.starStructure}%</div>
+                  <div className="text-4xl font-black text-violet-400 mb-2">
+                    {Math.round((metrics.starProgress.situation + metrics.starProgress.task + metrics.starProgress.action + metrics.starProgress.result) / 4)}%
+                  </div>
                   <div className="text-[10px] font-black tracking-widest uppercase opacity-50">STAR Compliance</div>
                 </div>
                 <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
@@ -165,7 +192,7 @@ function App() {
                   Final AI Feedback
                 </h3>
                 <p className="text-foreground/80 leading-relaxed italic">
-                  "Your technical knowledge is solid, but you tend to skip the 'Result' part of the STAR method. Focus on Quantifying your impact with numbers in your next session. Your eye contact and composure were excellent."
+                  "{metrics.lastFeedback || 'Your technical knowledge is solid. Focus on quantifying results in the STAR method for your next session.'}"
                 </p>
               </div>
 
@@ -184,7 +211,10 @@ function App() {
                 </button>
               </div>
             </motion.div>
+
           ) : !isStarted ? (
+
+            /* ══════════════════ HERO ══════════════════ */
             <motion.div
               key="hero"
               initial={{ opacity: 0, y: 20 }}
@@ -211,7 +241,7 @@ function App() {
                 hears your expertise, and coaches you to land your dream job.
               </p>
 
-              <div className="flex flex-col sm:row gap-4 mb-20">
+              <div className="flex flex-col sm:flex-row gap-4 mb-20">
                 <button
                   onClick={() => apiKey ? setIsStarted(true) : setShowSettings(true)}
                   className="btn-premium flex items-center gap-2 group shadow-xl shadow-primary/20"
@@ -227,7 +257,7 @@ function App() {
               {/* Feature Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full text-left">
                 {[
-                  { icon: Mic, title: "Low-Latency Audio", desc: "Natural conversations with Gemini Live. Interrupt, barge-in, and respond instantly." },
+                  { icon: Mic, title: "Push-to-Talk", desc: "Hold the mic button to speak. Release to let Sarah process and respond instantly." },
                   { icon: Video, title: "Multimodal Vision", desc: "Analyzes eye contact, hand gestures, and professional demeanor while you speak." },
                   { icon: Trophy, title: "STAR Analysis", desc: "Real-time grading of your Situation, Task, Action, and Result structure." }
                 ].map((feature, i) => (
@@ -242,14 +272,15 @@ function App() {
                       <feature.icon className="text-primary w-6 h-6" />
                     </div>
                     <h3 className="font-bold text-xl mb-3 tracking-tight">{feature.title}</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {feature.desc}
-                    </p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
                   </motion.div>
                 ))}
               </div>
             </motion.div>
+
           ) : (
+
+            /* ══════════════════ LIVE INTERFACE ══════════════════ */
             <motion.div
               key="interface"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -257,7 +288,8 @@ function App() {
               className="max-w-6xl mx-auto"
             >
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-[75vh]">
-                {/* AI Recruiter Persona */}
+
+                {/* ── AI Recruiter Panel ── */}
                 <div className="lg:col-span-3 glass-premium rounded-[2.5rem] relative overflow-hidden flex flex-col items-center justify-center p-12 border-white/10 shadow-[0_0_100px_rgba(139,92,246,0.1)]">
                   <div className="absolute top-8 left-8 flex items-center gap-4">
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/20 text-red-500 text-[10px] font-black uppercase tracking-widest border border-red-500/30">
@@ -265,18 +297,13 @@ function App() {
                       Live Feed
                     </div>
                     <div className="text-[10px] text-muted-foreground font-mono bg-white/5 px-2 py-1 rounded border border-white/5 tracking-tighter shadow-sm">
-                      {isConnected ? 'STREAMS_ACTIVE' : 'INITIALIZING...'}
+                      {isConnected ? (isStreaming ? 'STREAMS_ACTIVE' : 'CONNECTED') : 'INITIALIZING...'}
                     </div>
                   </div>
 
-                  <div className="absolute top-8 right-8">
-                    <span className="text-[10px] font-mono text-primary/60">LATENCY: 42ms</span>
-                  </div>
-
                   {/* AI "Head" Representation */}
-                  <div className="relative mb-12">
+                  <div className="relative mb-8">
                     <div className="w-64 h-64 rounded-full bg-gradient-to-br from-primary/30 to-fuchsia-500/30 blur-[60px] animate-pulse-slow absolute -inset-8 opacity-50" />
-
                     <motion.div
                       animate={{
                         scale: isConnected ? [1, 1.02, 1] : 1,
@@ -286,8 +313,6 @@ function App() {
                       className="w-48 h-48 rounded-full glass border border-white/30 flex items-center justify-center relative bg-gradient-to-b from-white/10 to-transparent shadow-2xl z-10"
                     >
                       <Brain className="w-20 h-20 text-primary opacity-90 drop-shadow-[0_0_15px_rgba(139,92,246,0.5)]" />
-
-                      {/* Animated Audio Rings */}
                       {isConnected && (
                         <>
                           <motion.div
@@ -305,41 +330,59 @@ function App() {
                     </motion.div>
                   </div>
 
-                  <div className="text-center z-10">
+                  <div className="text-center z-10 mb-6">
                     <h2 className="text-3xl font-bold mb-2 tracking-tight">Sarah</h2>
                     <p className="text-primary font-black text-[10px] tracking-[0.3em] uppercase opacity-80">Senior Recruiter @ Google</p>
                   </div>
 
-                  {/* AI Response Text (Speech bubble style) */}
-                  <div className="mt-12 w-full max-w-2xl h-32 flex flex-col items-center">
+                  {/* ── SARAH Speech Bubble ── */}
+                  <div className="w-full max-w-2xl mb-4">
                     <AnimatePresence>
-                      {transcript ? (
+                      {sarahTranscript ? (
                         <motion.div
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="px-8 py-6 rounded-3xl bg-white/5 border border-white/10 text-center relative w-full"
+                          className="px-8 py-5 rounded-3xl bg-white/5 border border-white/10 text-center relative"
                         >
-                          <p className="text-xl leading-relaxed text-foreground font-medium italic">
-                            "{transcript.split('.').pop() || transcript}"
+                          <p className="text-lg leading-relaxed text-foreground font-medium italic">
+                            "{sarahTranscript}"
                           </p>
                           <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-background px-3 py-1 rounded-full border border-white/10">
                             <div className="flex gap-1">
-                              {[1, 2, 3].map(i => <div key={i} className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: `${i * 100}ms` }} />)}
+                              {[1, 2, 3].map(i => (
+                                <div key={i} className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: `${i * 100}ms` }} />
+                              ))}
                             </div>
                           </div>
                         </motion.div>
                       ) : (
-                        <div className="text-muted-foreground text-sm animate-pulse tracking-widest font-mono">
-                          WAITING FOR RESPONSE...
+                        <div className="text-center text-muted-foreground text-sm animate-pulse tracking-widest font-mono py-4">
+                          {isConnected ? 'WAITING FOR RESPONSE...' : 'INITIALIZING SARAH...'}
                         </div>
                       )}
                     </AnimatePresence>
                   </div>
+
+                  {/* ── YOU Speech Bubble ── */}
+                  <AnimatePresence>
+                    {youTranscript && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="w-full max-w-2xl px-6 py-3 rounded-2xl bg-sky-900/40 border border-sky-500/30 text-sky-300 text-sm"
+                      >
+                        <span className="font-black text-sky-400 text-[10px] tracking-widest uppercase mr-2">YOU:</span>
+                        {youTranscript}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
-                {/* Sidebar Controls & Metrics */}
+                {/* ── Sidebar ── */}
                 <div className="flex flex-col gap-6">
-                  {/* User Viewport */}
+
+                  {/* User Video Viewport */}
                   <div className="h-56 glass rounded-[2rem] relative overflow-hidden group shadow-xl border-white/10 bg-neutral-900">
                     <video
                       ref={videoRef}
@@ -350,12 +393,12 @@ function App() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      {!isRecording && <Video className="text-white/20 w-10 h-10" />}
+                      {!isStreaming && <Video className="text-white/20 w-10 h-10" />}
                     </div>
                     <div className="absolute bottom-5 left-5 right-5 flex justify-between items-end z-10">
                       <div>
                         <div className="text-[10px] font-black tracking-widest text-primary mb-1">CANDIDATE</div>
-                        <div className="text-xs font-bold text-white uppercase">Siddarth (You)</div>
+                        <div className="text-xs font-bold text-white uppercase">You</div>
                       </div>
                       <div className="flex gap-1.5 mb-1">
                         <div className="w-1.5 h-1.5 rounded-full bg-primary" />
@@ -369,7 +412,38 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Real-time Insights */}
+                  {/* ── Push-to-Talk Button ── */}
+                  {isStreaming && (
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      onMouseDown={micDown}
+                      onMouseUp={micUp}
+                      onMouseLeave={micUp}
+                      onTouchStart={(e) => { e.preventDefault(); micDown(); }}
+                      onTouchEnd={(e) => { e.preventDefault(); micUp(); }}
+                      className={cn(
+                        "w-full py-5 rounded-2xl font-black text-sm tracking-widest uppercase transition-all duration-150 select-none touch-manipulation border-2 flex items-center justify-center gap-3",
+                        isMicHeld
+                          ? "bg-green-500 border-green-400 text-white shadow-[0_0_30px_rgba(34,197,94,0.5)] scale-105"
+                          : "bg-white/5 border-white/20 text-muted-foreground hover:border-primary/50 hover:text-primary"
+                      )}
+                    >
+                      {isMicHeld ? (
+                        <>
+                          <Mic className="w-5 h-5 animate-pulse" />
+                          Speaking…
+                        </>
+                      ) : (
+                        <>
+                          <MicOff className="w-5 h-5" />
+                          Hold to Speak
+                        </>
+                      )}
+                    </motion.button>
+                  )}
+
+                  {/* Real-time Analytics */}
                   <div className="flex-1 glass p-8 rounded-[2rem] flex flex-col gap-6 border-white/10 shadow-xl">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-black text-[10px] tracking-[0.2em] uppercase text-muted-foreground flex items-center gap-2">
@@ -382,7 +456,6 @@ function App() {
                     <div className="space-y-6">
                       {[
                         { label: "CONFIDENCE", val: metrics.confidence, color: "bg-cyan-400" },
-                        { label: "STAR STRUCTURE", val: metrics.starStructure, color: "bg-violet-400" },
                         { label: "ARTICULATION", val: metrics.articulation, color: "bg-fuchsia-400" }
                       ].map((metric) => (
                         <div key={metric.label}>
@@ -392,7 +465,6 @@ function App() {
                           </div>
                           <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
                             <motion.div
-                              initial={{ width: 0 }}
                               animate={{ width: `${metric.val}%` }}
                               transition={{ duration: 1, ease: "easeOut" }}
                               className={cn("h-full rounded-full shadow-[0_0_12px_rgba(0,0,0,0.5)]", metric.color)}
@@ -400,23 +472,50 @@ function App() {
                           </div>
                         </div>
                       ))}
+
+                      {/* STAR Breakdown */}
+                      <div className="space-y-3">
+                        <div className="text-[10px] font-black tracking-widest text-muted-foreground mb-4">STAR BREAKDOWN</div>
+                        {[
+                          { label: "SITU", val: metrics.starProgress.situation, color: "bg-violet-400" },
+                          { label: "TASK", val: metrics.starProgress.task, color: "bg-violet-400" },
+                          { label: "ACTN", val: metrics.starProgress.action, color: "bg-violet-400" },
+                          { label: "RSLT", val: metrics.starProgress.result, color: "bg-violet-400" }
+                        ].map((m) => (
+                          <div key={m.label} className="flex items-center gap-3">
+                            <span className="text-[8px] font-black w-8 text-muted-foreground">{m.label}</span>
+                            <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                              <motion.div
+                                animate={{ width: `${m.val}%` }}
+                                className={cn("h-full rounded-full", m.color)}
+                              />
+                            </div>
+                            <span className="text-[8px] font-mono text-foreground/50">{m.val}%</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
+                    {/* Live Feedback */}
                     {metrics.lastFeedback && (
                       <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         className="p-3 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold italic"
                       >
-                        कोच: "{metrics.lastFeedback}"
+                        Coach: "{metrics.lastFeedback}"
                       </motion.div>
                     )}
 
+                    {/* Status + End Session */}
                     <div className="mt-auto pt-8 border-t border-white/5 space-y-4">
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
-                        <div className={cn("w-2 h-2 rounded-full", isConnected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-yellow-500 animate-pulse")} />
+                        <div className={cn(
+                          "w-2 h-2 rounded-full",
+                          isConnected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-yellow-500 animate-pulse"
+                        )} />
                         <span className="text-[10px] font-bold tracking-tight text-foreground/80 lowercase">
-                          {isConnected ? 'latency: 42ms' : 'establishing websocket...'}
+                          {isConnected ? (isStreaming ? 'streams active' : 'connected') : 'establishing websocket...'}
                         </span>
                       </div>
                       <button
