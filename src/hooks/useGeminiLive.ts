@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 
 /* ─────────────────────── Config Interface ─────────────────────── */
 
@@ -14,6 +14,10 @@ export interface GeminiLiveConfig {
     maxReconnectAttempts?: number;
     /** Strip common filler words from transcript during refinement (default: false) */
     enableFillerRemoval?: boolean;
+    /** Audio constraints (default marks all as true) */
+    echoCancellation?: boolean;
+    autoGainControl?: boolean;
+    noiseSuppression?: boolean;
 }
 
 /* ─────────────────────── Shared Types ─────────────────────── */
@@ -29,6 +33,12 @@ export interface InterviewMetrics {
     articulation: number;
     lastFeedback: string;
     transcript?: string;
+}
+
+export interface InterviewTranscript {
+    role: 'user' | 'sarah';
+    text: string;
+    ts?: string;
 }
 
 /** Pipeline step mirrors test.html's visual chunk tracker */
@@ -53,6 +63,9 @@ export function useGeminiLive({
     noiseGateThreshold = 0.015,
     maxReconnectAttempts = 3,
     enableFillerRemoval = false,
+    echoCancellation = true,
+    autoGainControl = true,
+    noiseSuppression = true,
 }: GeminiLiveConfig) {
 
     /* ── UI State ── */
@@ -61,6 +74,7 @@ export function useGeminiLive({
     const [isMicHeld, setIsMicHeld] = useState(false);
     const [youTranscript, setYouTranscript] = useState("");
     const [sarahTranscript, setSarahTranscript] = useState("");
+    const [chatHistory, setChatHistory] = useState<InterviewTranscript[]>([]);
     const [stream, setLocalStream] = useState<MediaStream | null>(null);
     const [pipelineStep, setPipelineStep] = useState<PipelineStep>("idle");
 
@@ -95,6 +109,7 @@ export function useGeminiLive({
     const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
     /** Analyser node exposed to UI for waveform canvas drawing */
     const analyserRef = useRef<AnalyserNode | null>(null);
+    const workletNodeRef = useRef<AudioWorkletNode | null>(null);
 
     // PTT hold (needed inside audio processor closure)
     const isMicHeldRef = useRef(false);
@@ -113,6 +128,12 @@ export function useGeminiLive({
     vadThresholdRef.current = vadThreshold;
     const noiseGateThresholdRef = useRef(noiseGateThreshold);
     noiseGateThresholdRef.current = noiseGateThreshold;
+
+    useEffect(() => {
+        if (workletNodeRef.current) {
+            workletNodeRef.current.port.postMessage({ type: 'SET_THRESHOLD', value: noiseGateThreshold });
+        }
+    }, [noiseGateThreshold]);
 
     /* ─────────────────────── Helpers ─────────────────────── */
 
@@ -175,22 +196,6 @@ export function useGeminiLive({
         });
 
     /* ── Audio Signal Processing (ported from test.html AudioLens engine) ── */
-
-    /** Root Mean Square — drives VAD and level meter */
-    const getRMS = (samples: Float32Array): number => {
-        let sum = 0;
-        for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
-        return Math.sqrt(sum / samples.length);
-    };
-
-    /** Noise gate — zeros samples below threshold to suppress background hiss */
-    const applyNoiseGate = (samples: Float32Array, threshold: number): Float32Array => {
-        const result = new Float32Array(samples.length);
-        for (let i = 0; i < samples.length; i++) {
-            result[i] = Math.abs(samples[i]) > threshold ? samples[i] : 0;
-        }
-        return result;
-    };
 
     /** Linear interpolation resample — converts native browser SR → 16 kHz for Gemini */
     const resampleLinear = (samples: Float32Array, srcRate: number, targetRate: number): Float32Array => {
@@ -319,7 +324,7 @@ export function useGeminiLive({
             lines.push(`Quality score (post-refinement): ${quality}%`);
         }
         return lines.join("\n");
-    }, [youTranscript, sarahTranscript, rawWordCount, refinedWordCount]);
+    }, [youTranscript, sarahTranscript, rawWordCount, refinedWordCount, chatHistory]); // Added chatHistory to dependencies
 
     /* ─────────────────────── Message Handler ─────────────────────── */
 
@@ -432,12 +437,21 @@ export function useGeminiLive({
 
         if (sc.turnComplete) {
             console.log("Turn complete");
+            // Finalize this turn into history
+            setChatHistory(prev => {
+                const next = [...prev];
+                if (youTranscript.trim()) next.push({ role: 'user', text: youTranscript.trim() });
+                if (sarahTranscript.trim()) next.push({ role: 'sarah', text: sarahTranscript.trim() });
+                return next;
+            });
+            // Keep the last text visible briefly, then clear local buffers for next turn
             setYouTranscript("");
             setSarahTranscript("");
+            
             nextPlayTimeRef.current = 0;
             pendingChunksRef.current = [];
         }
-    }, [playAudio]);
+    }, [playAudio, youTranscript, sarahTranscript]);
 
     /* ─────────────────────── Reconnect / Retry ─────────────────────── */
 
@@ -601,9 +615,9 @@ export function useGeminiLive({
             const media = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     channelCount: 1,
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true,
+                    echoCancellation,
+                    noiseSuppression,
+                    autoGainControl,
                 },
                 video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 10 } }
             });
@@ -617,52 +631,50 @@ export function useGeminiLive({
             nextPlayTimeRef.current = 0;
             console.log("Output AudioContext 24kHz ready");
 
-            // Input AudioContext at NATIVE browser rate — we resample to 16kHz ourselves
+            // Input AudioContext at NATIVE browser rate
             inputCtxRef.current = new AudioContext();
             const nativeSR = inputCtxRef.current.sampleRate;
-            console.log(`Input AudioContext native: ${nativeSR}Hz (will resample → 16kHz)`);
+            console.log(`Input AudioContext native: ${nativeSR}Hz (using AudioWorklet)`);
 
             const source = inputCtxRef.current.createMediaStreamSource(media);
 
-            // AnalyserNode: feeds waveform canvas in the UI (pre-gating = true input amplitude)
+            // AnalyserNode: feeds waveform canvas in the UI
             const analyser = inputCtxRef.current.createAnalyser();
             analyser.fftSize = 1024;
             analyserRef.current = analyser;
             source.connect(analyser);
 
-            // ScriptProcessor — 2048 buffer for lower latency than 4096
-            const proc = inputCtxRef.current.createScriptProcessor(2048, 1, 1);
-            source.connect(proc);
-            proc.connect(inputCtxRef.current.destination);
+            // Load and initialize AudioWorklet
+            await inputCtxRef.current.audioWorklet.addModule('/audio-processor.js');
+            const workletNode = new AudioWorkletNode(inputCtxRef.current, 'advanced-audio-processor');
+            workletNodeRef.current = workletNode;
+            source.connect(workletNode);
+            workletNode.connect(inputCtxRef.current.destination);
 
-            proc.onaudioprocess = (e) => {
-                const raw = e.inputBuffer.getChannelData(0);
+            // Sync initial threshold and handle updates
+            workletNode.port.postMessage({ type: 'SET_THRESHOLD', value: noiseGateThresholdRef.current });
+            
+            workletNode.port.onmessage = (event) => {
+                const { audio, rms } = event.data;
+                const gated = audio as Float32Array;
 
-                // 1. Noise gate — suppresses background hiss (threshold from config ref)
-                const gated = applyNoiseGate(raw, noiseGateThresholdRef.current);
-
-                // 2. VAD + level meter (always active, even when PTT not held)
-                const rms = getRMS(gated);
+                // 2. VAD + level meter
                 const speaking = rms > vadThresholdRef.current;
                 setIsSpeaking(speaking);
-                setAudioLevel(Math.min(rms * 300, 100));
+                setAudioLevel(Math.min(rms * 400, 100));
 
                 // 3. Only send to Gemini when mic is held (PTT)
                 if (!isMicHeldRef.current || wsRef.current?.readyState !== WebSocket.OPEN) return;
 
-                // 4. VAD silence suppression: mirror test.html's silenceFrames counter.
-                //    If the user is silent for SILENCE_THRESHOLD consecutive frames, skip
-                //    sending — saves bandwidth and avoids flooding Gemini with empty noise.
+                // 4. VAD silence suppression
                 if (!speaking) {
                     silenceFramesRef.current++;
-                    if (silenceFramesRef.current > SILENCE_THRESHOLD) {
-                        return; // suppress this frame
-                    }
+                    if (silenceFramesRef.current > SILENCE_THRESHOLD) return;
                 } else {
-                    silenceFramesRef.current = 0; // voice detected — reset counter
+                    silenceFramesRef.current = 0;
                 }
 
-                // 5. Resample native SR → 16kHz via linear interpolation
+                // 5. Resample native SR → 16kHz
                 const resampled = resampleLinear(gated, nativeSR, 16000);
 
                 // 6. Float32 → Int16 PCM
@@ -672,7 +684,7 @@ export function useGeminiLive({
                     pcm16[i] = Math.round(s * 32767);
                 }
 
-                // 7. Base64 encode and send — camelCase required by BidiGenerateContent WS
+                // 7. Base64 encode and send
                 const b64 = encodeBase64(new Uint8Array(pcm16.buffer));
                 wsRef.current!.send(JSON.stringify({
                     realtimeInput: {
@@ -810,6 +822,7 @@ export function useGeminiLive({
         // Transcripts
         youTranscript,
         sarahTranscript,
+        chatHistory,
 
         // Quality metrics
         wordCount,
@@ -818,7 +831,7 @@ export function useGeminiLive({
         // Interview metrics (STAR + confidence)
         metrics,
 
-        // Media stream (for <video> srcObject)
+        // Media stream
         stream,
 
         // Actions

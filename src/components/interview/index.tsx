@@ -1,12 +1,49 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { cn } from '../../lib/utils';
-import type { StarMetrics } from '../../types/index';
+import type { InterviewTranscript, StarMetrics } from '../../types/index';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export function LiveChat({ you, sarah }: { you: string, sarah: string }) {
+export function LiveChat({ you, sarah, history = [], isProcessing }: { you: string, sarah: string, history?: InterviewTranscript[], isProcessing?: boolean }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [history, you, sarah, isProcessing]);
+
   return (
-    <div className="space-y-4">
+    <div ref={scrollRef} className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
       <AnimatePresence mode="popLayout">
+        {/* Render History */}
+        {history.map((msg, i) => (
+          <motion.div 
+            key={`hist-${i}`}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={cn(
+              "flex flex-col gap-1.5",
+              msg.role === 'sarah' ? "items-end" : "items-start"
+            )}
+          >
+            <span className={cn(
+              "text-[10px] font-bold uppercase tracking-widest px-1",
+              msg.role === 'sarah' ? "text-indigo-400" : "text-slate-500"
+            )}>
+              {msg.role === 'sarah' ? "Sarah (AI)" : "Candidate"}
+            </span>
+            <div className={cn(
+              "px-4 py-3 rounded-2xl font-medium text-sm leading-relaxed shadow-sm opacity-80",
+              msg.role === 'sarah' 
+                ? "bg-indigo-600/50 text-indigo-100 rounded-tr-none" 
+                : "bg-slate-800/50 text-slate-300 rounded-tl-none border border-slate-700/50"
+            )}>
+              {msg.text}
+            </div>
+          </motion.div>
+        ))}
+
+        {/* Current Interim Transcripts */}
         {you && (
           <motion.div 
             initial={{ opacity: 0, x: -10 }}
@@ -14,7 +51,7 @@ export function LiveChat({ you, sarah }: { you: string, sarah: string }) {
             className="flex flex-col gap-1.5"
           >
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Candidate</span>
-            <div className="bg-slate-900 border border-slate-800 text-slate-200 px-4 py-3 rounded-2xl rounded-tl-none font-medium text-sm leading-relaxed shadow-sm">
+            <div className="bg-slate-900/80 border border-slate-800 text-slate-200 px-4 py-3 rounded-2xl rounded-tl-none font-medium text-sm leading-relaxed shadow-sm backdrop-blur-sm">
               {you}
             </div>
           </motion.div>
@@ -33,7 +70,26 @@ export function LiveChat({ you, sarah }: { you: string, sarah: string }) {
           </motion.div>
         )}
 
-        {!you && !sarah && (
+        {isProcessing && !sarah && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-end gap-1.5"
+          >
+            <div className="flex gap-1 mb-1">
+              {[0, 1, 2].map(i => (
+                <motion.div
+                  key={i}
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ repeat: Infinity, duration: 1, delay: i * 0.2 }}
+                  className="w-1.5 h-1.5 rounded-full bg-indigo-500"
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {!you && !sarah && history.length === 0 && (
           <div className="h-32 flex items-center justify-center text-slate-600 text-xs font-medium italic border border-dashed border-slate-800 rounded-3xl">
             Awaiting conversation initialization...
           </div>

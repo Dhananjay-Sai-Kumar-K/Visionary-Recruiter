@@ -2,7 +2,7 @@ import React, { forwardRef } from 'react';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export const VideoPreview = forwardRef<HTMLVideoElement, { isWarnFlash?: boolean, canvasRef?: React.RefObject<HTMLCanvasElement | null> }>(({ isWarnFlash, canvasRef }, ref) => {
+export const VideoPreview = forwardRef<HTMLVideoElement, { isWarnFlash?: boolean, canvasRef?: React.RefObject<HTMLCanvasElement | null>, audioLevel?: number }>(({ isWarnFlash, canvasRef, audioLevel = 0 }, ref) => {
   return (
     <div className={cn(
       "relative rounded-2xl overflow-hidden bg-slate-950 aspect-video border border-slate-800 shadow-2xl transition-all duration-500",
@@ -19,6 +19,20 @@ export const VideoPreview = forwardRef<HTMLVideoElement, { isWarnFlash?: boolean
         className="block w-full h-full object-cover rounded-2xl grayscale-[20%] contrast-[1.1]"
       />
       
+      {/* Real-time Audio Waveform Overlay */}
+      <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-30 overflow-hidden flex items-end justify-center gap-[2px] pb-4 px-10">
+        {Array.from({ length: 40 }).map((_, i) => (
+          <motion.div
+            key={i}
+            animate={{ 
+              height: Math.max(4, audioLevel * (0.6 + Math.random() * 0.4) * (1 - Math.abs(i - 20) / 20))
+            }}
+            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            className="w-1 bg-indigo-500/60 rounded-full"
+          />
+        ))}
+      </div>
+
       <canvas 
         ref={canvasRef}
         className="absolute top-0 left-0 w-full h-full rounded-2xl pointer-events-none z-10 brightness-125" 

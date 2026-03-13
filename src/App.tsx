@@ -22,7 +22,7 @@ export default function App() {
   const { 
     isConnected, isStreaming, isMicHeld, 
     startStreaming, micDown, micUp, connect,
-    youTranscript, sarahTranscript, metrics, sendTextMessage
+    youTranscript, sarahTranscript, chatHistory, metrics, sendTextMessage, audioLevel, pipelineStep
   } = useGeminiLive({ apiKey });
   
   const { isLoaded: mpLoaded, metrics: mpMetrics } = useFaceMesh(videoRef, canvasRef, isStreaming);
@@ -101,7 +101,12 @@ export default function App() {
           {/* LEFT COL */}
           <div className="space-y-6">
             <Box title="Visual Intelligence">
-              <VideoPreview ref={videoRef} canvasRef={canvasRef} isWarnFlash={!!toastMsg} />
+              <VideoPreview 
+                ref={videoRef} 
+                canvasRef={canvasRef} 
+                isWarnFlash={!!toastMsg} 
+                audioLevel={audioLevel}
+              />
               
               <div className="flex items-center gap-4 mt-6">
                 <button
@@ -162,7 +167,12 @@ export default function App() {
             <FirebasePanel hook={fb} />
             
             <Box title="Intelligence Feed">
-              <LiveChat you={youTranscript} sarah={sarahTranscript} />
+              <LiveChat 
+                you={youTranscript} 
+                sarah={sarahTranscript} 
+                history={chatHistory}
+                isProcessing={pipelineStep === 'processing'} 
+              />
             </Box>
             
             <Box title="Performance Evaluation">
