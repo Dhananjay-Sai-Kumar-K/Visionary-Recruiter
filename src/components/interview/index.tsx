@@ -2,6 +2,9 @@ import React, { useRef, useEffect } from 'react';
 import { cn } from '../../lib/utils';
 import type { InterviewTranscript, StarMetrics } from '../../types/index';
 import { motion, AnimatePresence } from 'framer-motion';
+import { InsightRadar } from './InsightRadar';
+
+export { InsightRadar };
 
 export function LiveChat({ you, sarah, history = [], isProcessing }: { you: string, sarah: string, history?: InterviewTranscript[], isProcessing?: boolean }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -101,30 +104,45 @@ export function LiveChat({ you, sarah, history = [], isProcessing }: { you: stri
 
 export function StarMetricsDisplay({ metrics }: { metrics: StarMetrics }) {
   const m = metrics;
+  
+  const radarData = [
+    { label: 'CONF', value: m.confidence },
+    { label: 'SIT', value: m.star_situation },
+    { label: 'TASK', value: m.star_task },
+    { label: 'ACT', value: m.star_action },
+    { label: 'RES', value: m.star_result },
+    { label: 'ART', value: m.articulation }
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <MetricItem label="Confidence" val={m.confidence} />
-        <MetricItem label="Situation" val={m.star_situation} />
-        <MetricItem label="Task" val={m.star_task} />
-        <MetricItem label="Action" val={m.star_action} />
-        <MetricItem label="Result" val={m.star_result} />
-        <MetricItem label="Articulation" val={m.articulation} />
+    <div className="space-y-8">
+      <div className="flex flex-col lg:flex-row gap-8 items-center">
+        <InsightRadar metrics={radarData} />
+        <div className="grid grid-cols-2 gap-3 flex-1 w-full">
+          <MetricItem label="Confidence" val={m.confidence} />
+          <MetricItem label="Situation" val={m.star_situation} />
+          <MetricItem label="Task" val={m.star_task} />
+          <MetricItem label="Action" val={m.star_action} />
+          <MetricItem label="Result" val={m.star_result} />
+          <MetricItem label="Articulation" val={m.articulation} />
+        </div>
       </div>
       
       {m.feedback && (
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4"
+          className="bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-4 flex gap-4"
         >
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">AI Coaching Note</span>
+          <div className="w-10 h-10 rounded-full bg-indigo-600/20 flex items-center justify-center shrink-0 border border-indigo-500/20">
+            <span className="text-indigo-400 text-xs">AI</span>
           </div>
-          <p className="text-sm text-amber-100/80 italic leading-relaxed">
-            "{m.feedback}"
-          </p>
+          <div>
+            <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Sarah's Evaluation</div>
+            <p className="text-sm text-slate-300 italic leading-relaxed">
+              "{m.feedback}"
+            </p>
+          </div>
         </motion.div>
       )}
     </div>

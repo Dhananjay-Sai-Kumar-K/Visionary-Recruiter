@@ -20,12 +20,15 @@ export function BiometricsCard({ label, value, subLabel, rawVal, progressFn, sou
     const strokeOffset = 175.9 * (1 - (rawVal as number || 0) / 100);
     
     return (
-      <div className="bg-slate-950/40 border border-slate-800/50 rounded-2xl p-5 col-span-full flex items-center gap-8 relative group overflow-hidden shadow-inner">
+      <motion.div 
+        whileHover={{ scale: 1.01 }}
+        className="bg-slate-950/40 border border-slate-800/50 rounded-2xl p-5 col-span-full flex items-center gap-8 relative group overflow-hidden shadow-inner"
+      >
         <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         
         <div className="relative w-24 h-24 shrink-0">
-          <svg viewBox="0 0 70 70" className="w-full h-full drop-shadow-[0_0_12px_rgba(99,102,241,0.15)]">
-            <circle cx="35" cy="35" r="28" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-800" />
+          <svg viewBox="0 0 70 70" className="w-full h-full drop-shadow-[0_0_12px_rgba(99,102,241,0.25)]">
+            <circle cx="35" cy="35" r="28" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-900" />
             <motion.circle 
               cx="35" cy="35" r="28" 
               fill="none" 
@@ -40,50 +43,65 @@ export function BiometricsCard({ label, value, subLabel, rawVal, progressFn, sou
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-xl font-bold text-white leading-none">{value}%</span>
-            <span className="text-[10px] text-slate-500 font-medium uppercase mt-1">Focus</span>
+            <span className="text-xl font-black text-white leading-none font-mono">{value}%</span>
+            <span className="text-[8px] text-slate-500 font-black uppercase mt-1 tracking-widest">Focus_Lock</span>
           </div>
         </div>
 
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-2">
-            <span className="badge-premium">Live Biometrics</span>
-            <span className="text-[10px] text-emerald-500 font-bold tracking-widest uppercase">Verified</span>
+            <div className="flex gap-0.5">
+               <motion.div animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1.5 }} className="w-1 h-3 bg-indigo-500 rounded-full" />
+               <motion.div animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.2 }} className="w-1 h-3 bg-indigo-500 rounded-full" />
+               <motion.div animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1.5, delay: 0.4 }} className="w-1 h-3 bg-indigo-500 rounded-full" />
+            </div>
+            <span className="text-[10px] text-indigo-400 font-black tracking-[.2em] uppercase">Neural Signal Target</span>
           </div>
           <h4 className="text-xl font-bold text-white tracking-tight">
             {label}
           </h4>
           <p className="text-xs text-slate-400 font-medium leading-relaxed">
-            {subLabel} • <span className="text-slate-600 font-mono">ID: MP_VIZ_B1</span>
+            {subLabel} • <span className="text-slate-600 font-mono text-[9px]">SIG_ID: VIZ_{label.slice(0, 3).toUpperCase()}</span>
           </p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="bg-slate-950/30 border border-slate-800/50 rounded-xl p-4 transition-all hover:bg-slate-900/40 hover:border-slate-700/50">
+    <motion.div 
+      whileHover={{ y: -2 }}
+      className="bg-slate-950/30 border border-slate-800/50 rounded-xl p-4 transition-all hover:bg-slate-900/40 hover:border-indigo-500/20"
+    >
       <div className="flex justify-between items-start mb-2">
-        <span className="stat-label">{label}</span>
-        {sourceTag && <span className="text-[9px] font-bold text-slate-600 px-1.5 py-0.5 rounded-md bg-slate-900 border border-slate-800">{sourceTag}</span>}
+        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{label}</span>
+        <div className="w-1 h-1 rounded-full bg-slate-800 animate-pulse" />
       </div>
       
       <div className="flex items-baseline gap-1.5">
-        <span className="text-2xl font-bold text-white leading-tight tracking-tight">{value}</span>
-        {pct > 0 && <span className="text-[11px] text-slate-500 font-semibold">%</span>}
+        <span className="text-2xl font-black text-white leading-tight tracking-tight font-mono">{value}</span>
+        <span className="text-[10px] text-slate-600 font-bold">%</span>
       </div>
 
       {(rawVal !== undefined && progressFn) && (
-        <div className="h-1 bg-slate-800 rounded-full mt-4 overflow-hidden">
+        <div className="h-1 bg-slate-900 rounded-full mt-4 overflow-hidden relative">
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.05),transparent)] animate-[shimmer_2s_infinite]" />
           <motion.div 
-            className="h-full" 
+            className="h-full relative z-10" 
             initial={{ width: 0 }}
             animate={{ width: `${pct}%` }}
             transition={{ duration: 0.8 }}
-            style={{ backgroundColor: color }}
+            style={{ 
+              backgroundColor: color,
+              boxShadow: `0 0 10px ${color}40`
+            }}
           />
         </div>
       )}
-    </div>
+      
+      {subLabel && (
+        <div className="mt-2 text-[8px] font-bold text-slate-600 uppercase tracking-tighter">{subLabel}</div>
+      )}
+    </motion.div>
   );
 }
