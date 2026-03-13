@@ -467,14 +467,14 @@ export function useGeminiLive({
 
     /* ─────────────────────── CONNECT ─────────────────────── */
 
-    const connect = useCallback(() => {
+    const connect = useCallback((overrideKey?: string) => {
         if (
             wsRef.current &&
             (wsRef.current.readyState === WebSocket.OPEN ||
                 wsRef.current.readyState === WebSocket.CONNECTING)
         ) return;
 
-        const key = apiKey.trim();
+        const key = (overrideKey || apiKey).trim();
         if (!key) { console.error("Gemini API key missing"); return; }
 
         intentionalDisconnectRef.current = false;
@@ -498,13 +498,20 @@ export function useGeminiLive({
                 setup: {
                     model: "models/gemini-2.5-flash-native-audio-preview-12-2025",
                     generation_config: {
-                        response_modalities: ["AUDIO"]
+                        response_modalities: ["AUDIO"],
+                        speech_config: {
+                            voice_config: {
+                                prebuilt_voice_config: {
+                                    voice_name: "Puck"
+                                }
+                            }
+                        }
                     },
                     input_audio_transcription: {},
                     output_audio_transcription: {},
                     system_instruction: {
                         parts: [{
-                            text: (systemInstruction || "You are Sarah, a Senior Recruiter doing a mock interview using the STAR method. Introduce yourself briefly, then ask one STAR question at a time. Keep responses to 2-3 sentences. CRITICAL: After every candidate response, always call update_interview_metrics with scores 0-100 for each dimension. Never skip this call.") + "\n\nCRITICAL SYSTEM INSTRUCTION: All audio processing and conversation MUST be in English. Answer in English. Transcribe in English. Do not output foreign languages."
+                            text: (systemInstruction || "You are Sarah, a Lead Talent Partner from Visionary Recruiting. You are conducting a high-stakes professional mock interview for a technical leadership role. You must follow the STAR method (Situation, Task, Action, Result) rigorously. Introduce yourself with professional elegance, then probe for specific examples. Keep your focus on assessing core competencies. CRITICAL: After every candidate response, always call update_interview_metrics to quantify their performance. Your tone should be encouraging but elite—think of yourself as a top-tier executive coach.") + "\n\nCRITICAL LINGUISTIC LOCK: You are operating in a 100% English-only environment. You MUST transcribe all input audio as English (en-US). If you hear non-English speech or background noise, ignore it or interpret it as the closest phonetic English equivalent. Under NO circumstances should you output or transcribe in Thai, Hindi, or any other language. Your language processing is strictly locked to English."
                         }]
                     },
                     realtime_input_config: {

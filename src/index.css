@@ -1,28 +1,26 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
-
-
 :root {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 6%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 263.4 70% 50.4%;
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 226.3 70.6% 58.8%;
   --primary-foreground: 210 40% 98%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --accent: 263.4 70% 50.4%;
-  --accent-foreground: 0 0% 98%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
   --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 263.4 70% 50.4%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 224.3 76.3% 48%;
   --radius: 0.75rem;
 }
 
@@ -32,53 +30,66 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/30;
+    @apply bg-[#020617] text-foreground antialiased selection:bg-accent/30;
     font-feature-settings: "rlig" 1, "calt" 1;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.05) 0px, transparent 50%);
   }
 }
 
 @layer components {
-  .glass {
-    @apply bg-card/60 backdrop-blur-md border border-white/10;
+  .glass-card {
+    @apply bg-slate-900/40 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-6 transition-all duration-500 shadow-xl;
   }
 
-  .glass-premium {
-    @apply bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 shadow-2xl;
+  .glass-card:hover {
+    @apply border-indigo-500/20 bg-slate-900/60 shadow-indigo-500/5;
   }
 
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-violet-400 via-fuchsia-400 to-cyan-400;
+  .stat-label {
+    @apply text-[11px] font-medium tracking-wider text-slate-400 uppercase mb-1.5;
   }
 
-  .btn-premium {
-    @apply relative overflow-hidden px-6 py-3 rounded-xl font-medium transition-all duration-300 bg-primary text-primary-foreground active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+  .stat-value {
+    @apply text-3xl font-bold text-white tracking-tight;
   }
 
-  .btn-premium:hover {
-    box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+  .btn-primary {
+    @apply px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium text-sm transition-all duration-200 hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-500/20 active:scale-95 disabled:opacity-50;
   }
 
+  .btn-outline {
+    @apply px-4 py-2 rounded-lg bg-slate-800/50 text-slate-200 border border-slate-700 font-medium text-sm transition-all duration-200 hover:bg-slate-700 hover:text-white active:scale-95;
+  }
+
+  .input-field {
+    @apply bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all;
+  }
+
+  .badge-premium {
+    @apply px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-indigo-500/10 border border-indigo-500/20 text-indigo-400;
+  }
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
-
 ::-webkit-scrollbar-track {
   @apply bg-transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+  @apply bg-slate-800 rounded-full hover:bg-slate-700;
 }
 
-/* Background mesh gradient */
-.bg-mesh {
-  background-color: hsla(240, 10%, 4%, 1);
-  background-image:
-    radial-gradient(at 0% 0%, hsla(263, 70%, 50%, 0.15) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, hsla(190, 70%, 50%, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, hsla(320, 70%, 50%, 0.1) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, hsla(240, 70%, 50%, 0.05) 0px, transparent 50%);
+/* Tooltip transition */
+.tooltip-enter {
+  opacity: 0;
+  transform: translateY(5px);
+}
+.tooltip-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 200ms, transform 200ms;
 }
