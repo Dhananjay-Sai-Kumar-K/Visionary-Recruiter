@@ -195,7 +195,7 @@ export function calcJawTension(mouthTop: Pt, mouthBot: Pt, jawTop: Pt, jawBot: P
  * Measured by width:height ratio of inner mouth.
  * Landmarks: L78 (lip-left), L308 (lip-right), L13 (top), L14 (bottom).
  */
-export function calcLipCompression(lipL: Pt, lipR: Pt, lipTop: Pt, lipBot: Pt, faceW: number): number {
+export function calcLipCompression(lipL: Pt, lipR: Pt, lipTop: Pt, lipBot: Pt): number {
   const width  = dist(lipL, lipR);
   const height = dist(lipTop, lipBot);
   // Wide, flat mouth → high compression

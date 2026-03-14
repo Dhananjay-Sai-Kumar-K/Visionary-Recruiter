@@ -130,7 +130,6 @@ function SummaryBar({ timeline }: { timeline: TimelineSnapshot[] }) {
   const phase = () => {
     if (timeline.length < 6) return 'Calibrating';
     const firstHalf  = timeline.slice(0, Math.floor(timeline.length / 2));
-    const secondHalf = timeline.slice(Math.floor(timeline.length / 2));
     const confDelta  = avg.call(null, 'confidence') - (firstHalf.reduce((s, t) => s + t.confidence, 0) / firstHalf.length);
     if (confDelta > 10) return 'Recovering';
     if (avg('stress') > 60) return 'Under Pressure';

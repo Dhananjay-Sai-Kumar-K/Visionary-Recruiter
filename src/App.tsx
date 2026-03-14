@@ -18,17 +18,17 @@ export default function App() {
   const [scanInterval, setScanInterval] = useState(5);
   const [toastMsg, setToastMsg] = useState('');
   const [isSessionCompleted, setIsSessionCompleted] = useState(false);
-  
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
+
   const fb = useFirebase();
-  const { 
-    isConnected, isStreaming, isMicHeld, 
+  const {
+    isConnected, isStreaming, isMicHeld,
     startStreaming, micDown, micUp, connect,
     youTranscript, sarahTranscript, chatHistory, metrics, sendTextMessage, audioLevel, pipelineStep
   } = useGeminiLive({ apiKey });
-  
+
   const { isLoaded: mpLoaded, metrics: mpMetrics, events: bioEvents, timeline: bioTimeline } = useFaceMesh(videoRef, canvasRef, isStreaming);
 
   // Sync biometric events → InsightTicker (events come from useFaceMesh, not manual logic)
@@ -82,27 +82,27 @@ export default function App() {
   return (
     <div className="font-sans bg-[#020617] text-slate-200 p-6 min-h-screen relative overflow-x-hidden selection:bg-indigo-500/30">
       <div className="absolute inset-0 pointer-events-none z-[-1] opacity-20 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:40px_40px]"></div>
-      
+
       <div className="max-w-[1280px] mx-auto pb-24">
         <Header mpLoaded={mpLoaded} />
-        
+
         <Box title="System Authentication" className="mb-8">
           <div className="flex flex-wrap items-center gap-3">
-            <input 
-              type="password" 
-              value={apiKey} 
-              onChange={e => setApiKey(e.target.value)} 
-              placeholder="Enter your Gemini API Key" 
+            <input
+              type="password"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder="Enter your Gemini API Key"
               className="input-field flex-1 min-w-[240px]"
             />
-            <button 
-              onClick={() => handleConnect(apiKey)} 
+            <button
+              onClick={() => handleConnect(apiKey)}
               className="btn-primary"
             >
               1. Initialize AI
             </button>
-            <button 
-              onClick={() => startStreaming(videoRef.current)} 
+            <button
+              onClick={() => startStreaming(videoRef.current)}
               disabled={!isConnected || isStreaming}
               className="btn-outline disabled:opacity-30"
             >
@@ -116,20 +116,20 @@ export default function App() {
             </div>
           </div>
         </Box>
-        
+
         <MainGrid>
           {/* LEFT COL */}
           <div className="space-y-6">
             <Box title="Visual Intelligence">
-              <VideoPreview 
-                ref={videoRef} 
-                canvasRef={canvasRef} 
-                isWarnFlash={!!toastMsg} 
+              <VideoPreview
+                ref={videoRef}
+                canvasRef={canvasRef}
+                isWarnFlash={!!toastMsg}
                 audioLevel={audioLevel}
                 stress={mpMetrics.stress}
                 presence={mpMetrics.presence}
               />
-              
+
               <div className="flex items-center gap-4 mt-6">
                 <button
                   onMouseDown={micDown}
@@ -142,7 +142,7 @@ export default function App() {
                     isMicHeld && "bg-indigo-600 text-white border-indigo-500 scale-105 shadow-2xl shadow-indigo-500/40"
                   )}
                 >
-                  Hold to<br/>Interact
+                  Hold to<br />Interact
                 </button>
                 <div className="flex-1 space-y-4">
                   <div className="space-y-2">
@@ -150,10 +150,10 @@ export default function App() {
                       <span>Sampling Rate</span>
                       <span className="text-indigo-400">{scanInterval}s</span>
                     </div>
-                    <input 
-                      type="range" 
-                      min="3" max="15" step="1" 
-                      value={scanInterval} 
+                    <input
+                      type="range"
+                      min="3" max="15" step="1"
+                      value={scanInterval}
                       onChange={e => setScanInterval(parseInt(e.target.value))}
                       className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                     />
@@ -171,50 +171,72 @@ export default function App() {
                 </div>
               </div>
             </Box>
-            
+
             <Box title="Neural Biometrics">
-              <div className="grid grid-cols-2 gap-3 mt-1">
-                <BiometricsCard label="Confidence Score" value={mpMetrics.confidenceScore} rawVal={mpMetrics.confidenceScore} progressFn={v => v} subLabel={mpMetrics.confidenceScore > 70 ? 'High confidence' : 'Building'} />
-                <BiometricsCard label="Exec Presence" value={mpMetrics.presence} rawVal={mpMetrics.presence} progressFn={v => v} subLabel={mpMetrics.presence > 70 ? 'Commanding' : 'Passive'} />
-                <BiometricsCard label="Engagement" value={mpMetrics.engagement} rawVal={mpMetrics.engagement} progressFn={v => v} subLabel={mpMetrics.engagement > 70 ? 'Deeply engaged' : 'Surface level'} />
-                <BiometricsCard label="Cognitive Stress" value={mpMetrics.stress} rawVal={mpMetrics.stress} progressFn={v => v} sourceTag="MP CORE" />
-                <BiometricsCard label="Gaze Stability" value={mpMetrics.gazeStability} rawVal={mpMetrics.gazeStability} progressFn={v => v} subLabel={mpMetrics.gazeStability > 70 ? 'Steady' : 'Scanning'} />
-                <BiometricsCard label="Blink Spike" value={mpMetrics.blinkSpike} rawVal={mpMetrics.blinkSpike} progressFn={v => v} subLabel={`${mpMetrics.blinkRate} bpm`} />
-                <BiometricsCard label="Smile Auth." value={mpMetrics.smileAuthenticity} rawVal={mpMetrics.smileAuthenticity} progressFn={v => v} subLabel={mpMetrics.smileAuthenticity > 60 ? 'Duchenne' : 'Performative'} />
-                <BiometricsCard label="Head Stability" value={mpMetrics.headStability} rawVal={mpMetrics.headStability} progressFn={v => v} subLabel={`Tilt ${mpMetrics.tilt}°`} />
-              </div>
-              <div className="mt-5">
-                <InsightTicker events={insightEvents} />
-              </div>
+              {(!mpLoaded || !isStreaming) ? (
+                <div className="h-32 flex flex-col items-center justify-center gap-3 border border-dashed border-slate-800 rounded-2xl">
+                  <div className="flex gap-1.5">
+                    {[0, 1, 2].map(i => (
+                      <div key={i} className="w-1.5 h-1.5 rounded-full bg-slate-700 animate-pulse" style={{ animationDelay: `${i * 0.2}s` }} />
+                    ))}
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                    {!mpLoaded ? 'Loading Vision Engine...' : 'Start session to begin biometric analysis'}
+                  </span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  <BiometricsCard label="Confidence Score" value={mpMetrics.confidenceScore} rawVal={mpMetrics.confidenceScore} progressFn={v => v} subLabel={mpMetrics.confidenceScore > 70 ? 'High confidence' : 'Building'} />
+                  <BiometricsCard label="Exec Presence" value={mpMetrics.presence} rawVal={mpMetrics.presence} progressFn={v => v} subLabel={mpMetrics.presence > 70 ? 'Commanding' : 'Passive'} />
+                  <BiometricsCard label="Engagement" value={mpMetrics.engagement} rawVal={mpMetrics.engagement} progressFn={v => v} subLabel={mpMetrics.engagement > 70 ? 'Deeply engaged' : 'Surface level'} />
+                  <BiometricsCard label="Cognitive Stress" value={mpMetrics.stress} rawVal={mpMetrics.stress} progressFn={v => v} sourceTag="MP CORE" />
+                  <BiometricsCard label="Gaze Stability" value={mpMetrics.gazeStability} rawVal={mpMetrics.gazeStability} progressFn={v => v} subLabel={mpMetrics.gazeStability > 70 ? 'Steady' : 'Scanning'} />
+                  <BiometricsCard label="Blink Spike" value={mpMetrics.blinkSpike} rawVal={mpMetrics.blinkSpike} progressFn={v => v} subLabel={`${mpMetrics.blinkRate} bpm`} />
+                  <BiometricsCard label="Smile Auth." value={mpMetrics.smileAuthenticity} rawVal={mpMetrics.smileAuthenticity} progressFn={v => v} subLabel={mpMetrics.smileAuthenticity > 60 ? 'Duchenne' : 'Performative'} />
+                  <BiometricsCard label="Head Stability" value={mpMetrics.headStability} rawVal={mpMetrics.headStability} progressFn={v => v} subLabel={`Tilt ${mpMetrics.tilt}°`} />
+                </div>
+              )}
+              {isStreaming && (
+                <div className="mt-5">
+                  <InsightTicker events={insightEvents} />
+                </div>
+              )}
             </Box>
           </div>
-          
+
           {/* RIGHT COL */}
           <div className="space-y-6">
             <FirebasePanel hook={fb} />
-            
+
             <Box title="Intelligence Feed">
-              <LiveChat 
-                you={youTranscript} 
-                sarah={sarahTranscript} 
+              <LiveChat
+                you={youTranscript}
+                sarah={sarahTranscript}
                 history={chatHistory}
-                isProcessing={pipelineStep === 'processing'} 
+                isProcessing={pipelineStep === 'processing'}
               />
             </Box>
-            
+
             <Box title="Performance Evaluation">
-              <StarMetricsDisplay metrics={{
-                confidence: metrics.confidence,
-                star_situation: metrics.starProgress.situation,
-                star_task: metrics.starProgress.task,
-                star_action: metrics.starProgress.action,
-                star_result: metrics.starProgress.result,
-                articulation: metrics.articulation,
-                feedback: metrics.lastFeedback
-              }} />
-              
+              {!isStreaming ? (
+                <div className="h-28 flex flex-col items-center justify-center gap-2 border border-dashed border-slate-800 rounded-2xl">
+                  <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Scores generated from candidate speech</span>
+                  <span className="text-[9px] text-slate-700 font-mono">Sarah evaluates each answer in real-time</span>
+                </div>
+              ) : (
+                <StarMetricsDisplay metrics={{
+                  confidence: metrics.confidence,
+                  star_situation: metrics.starProgress.situation,
+                  star_task: metrics.starProgress.task,
+                  star_action: metrics.starProgress.action,
+                  star_result: metrics.starProgress.result,
+                  articulation: metrics.articulation,
+                  feedback: metrics.lastFeedback
+                }} />
+              )}
+
               {!isSessionCompleted && isStreaming && (
-                <button 
+                <button
                   onClick={handleEndSession}
                   className="w-full mt-6 py-4 bg-rose-600/10 border border-rose-500/30 text-rose-500 font-bold text-[10px] tracking-[.3em] uppercase rounded-2xl hover:bg-rose-600 hover:text-white transition-all duration-300"
                 >
@@ -226,22 +248,32 @@ export default function App() {
             <Box title="Behavioral Timeline">
               <BehaviorTimeline timeline={bioTimeline} />
             </Box>
-            
-            <Box title="Fused Aggregate Score">
-              <div className="grid grid-cols-3 gap-6">
-                <div className="bg-slate-950/50 border border-slate-800 p-4 rounded-2xl group transition-all hover:border-indigo-500/30 text-center">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Manual Signal</div>
-                  <div className="text-3xl font-black text-white">{mpScore === 100 && mpMetrics.eyeContact === 0 ? "--" : mpScore}</div>
+
+            <Box title="Fused Intelligence Score">
+              {!isStreaming ? (
+                <div className="h-28 flex flex-col items-center justify-center gap-2 border border-dashed border-slate-800 rounded-2xl">
+                  <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Scores form from candidate speech + vision</span>
+                  <span className="text-[9px] text-slate-700 font-mono">Start session to activate scoring engine</span>
                 </div>
-                <div className="bg-slate-950/50 border border-slate-800 p-4 rounded-2xl group transition-all hover:border-violet-500/30 text-center">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Neural Signal</div>
-                  <div className="text-3xl font-black text-white">{aiScore || "--"}</div>
+              ) : (
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-slate-950/50 border border-slate-800 p-4 rounded-2xl text-center">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Vision Score</div>
+                    <div className="text-3xl font-black text-white tabular-nums">{mpScore > 0 ? mpScore : '--'}</div>
+                    <div className="text-[9px] text-slate-600 mt-1 uppercase tracking-wider">Biometric AI</div>
+                  </div>
+                  <div className="bg-slate-950/50 border border-slate-800 p-4 rounded-2xl text-center">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Speech Score</div>
+                    <div className="text-3xl font-black text-white tabular-nums">{aiScore > 0 ? aiScore : '--'}</div>
+                    <div className="text-[9px] text-slate-600 mt-1 uppercase tracking-wider">AI Language</div>
+                  </div>
+                  <div className="bg-indigo-600/10 border border-indigo-500/30 p-4 rounded-2xl text-center shadow-lg shadow-indigo-500/5">
+                    <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2 font-mono">Composite</div>
+                    <div className="text-4xl font-black text-white tabular-nums">{compScore > 0 ? compScore : '--'}</div>
+                    <div className="text-[9px] text-indigo-700 mt-1 uppercase tracking-wider">Final Verdict</div>
+                  </div>
                 </div>
-                <div className="bg-indigo-600/10 border border-indigo-500/30 p-4 rounded-2xl text-center shadow-lg shadow-indigo-500/5">
-                  <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2 font-mono">Composite</div>
-                  <div className="text-4xl font-black text-white">{compScore || "--"}</div>
-                </div>
-              </div>
+              )}
             </Box>
           </div>
         </MainGrid>
@@ -249,18 +281,18 @@ export default function App() {
 
       <AnimatePresence>
         {isSessionCompleted && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="fixed inset-0 z-[1000] bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-6"
           >
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               className="max-w-2xl w-full bg-slate-900 border border-white/10 rounded-[32px] p-10 shadow-2xl relative overflow-hidden"
             >
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500" />
-              
+
               <div className="text-center mb-10">
                 <div className="inline-block px-4 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-4">Final Verdict Generated</div>
                 <h2 className="text-4xl font-black text-white tracking-tighter mb-2">Interview Intelligence Report</h2>
@@ -302,20 +334,20 @@ export default function App() {
               </div>
 
               <div className="bg-slate-950/50 border border-white/5 rounded-3xl p-6 mb-10">
-                 <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Sarah's Conclusion</div>
-                 <p className="text-lg font-medium text-slate-300 italic leading-relaxed">
-                   "{metrics.lastFeedback || "Session concluded with high-confidence telemetry data. Deployment recommended."}"
-                 </p>
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Sarah's Conclusion</div>
+                <p className="text-lg font-medium text-slate-300 italic leading-relaxed">
+                  "{metrics.lastFeedback || "Session concluded with high-confidence telemetry data. Deployment recommended."}"
+                </p>
               </div>
 
               <div className="flex gap-4">
-                <button 
+                <button
                   onClick={() => window.location.reload()}
                   className="flex-1 py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-widest rounded-2xl transition-all"
                 >
                   Restart Session
                 </button>
-                <button 
+                <button
                   className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-widest rounded-2xl shadow-xl shadow-indigo-500/20 transition-all"
                 >
                   Export Detailed Analysis

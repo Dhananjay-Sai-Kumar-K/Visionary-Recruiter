@@ -262,7 +262,7 @@ export function useFaceMesh(
     const rawSmile      = calcSmile(pt(61), pt(291), faceW);
     const smileAuth     = calcSmileAuthenticity(rawSmile, avgEar, earBaseline.current);
     const rawJaw        = calcJawTension(pt(13), pt(14), pt(149), pt(378), faceH);
-    const lipComp       = calcLipCompression(pt(78), pt(308), pt(13), pt(14), faceW);
+    const lipComp       = calcLipCompression(pt(78), pt(308), pt(13), pt(14));
     const eyebrow       = calcEyebrowRaise(pt(70), pt(336), pt(159), pt(386), faceH);
 
     /* ──── 5. Nodding Detection ──── */

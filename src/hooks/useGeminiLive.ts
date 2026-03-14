@@ -79,9 +79,9 @@ export function useGeminiLive({
     const [pipelineStep, setPipelineStep] = useState<PipelineStep>("idle");
 
     const [metrics, setMetrics] = useState<InterviewMetrics>({
-        confidence: 70,
+        confidence: 0,
         starProgress: { situation: 0, task: 0, action: 0, result: 0 },
-        articulation: 50,
+        articulation: 0,
         lastFeedback: ""
     });
 
